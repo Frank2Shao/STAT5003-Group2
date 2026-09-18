@@ -1,0 +1,113 @@
+---
+title: "STAT5003 Assignment Title"
+author: "G02"
+output:
+  html_document:G
+    code_folding: hide 
+---
+
+```{r}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE
+)
+
+library(readr)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+services <- read.csv("Education-services-au-export.csv")
+
+providers <- read.csv("Approved-providers-au-export.csv")
+```
+
+
+# Introduction
+
+This template is provided as a guide, and you are welcome to modify it as needed.
+
+# Framing & Dataset Selection
+
+## Research Question
+
+To what extent can service type, service scale, operating patterns, geographic location, and provider characteristics be used to classify an Australian education and care service's recorded NQS rating tier as Below NQS, Meeting NQS, or Above NQS?
+
+## Unit of Analysis and Outcome
+
+Each observation represents one approved Australian education and care service, uniquely identified by its `ServiceApprovalNumber`. The services register contains 18,183 unique services.
+
+The outcome is a three-level categorical variable derived from `OverallRating`. Significant Improvement Required and Working Towards NQS are grouped as Below NQS; Meeting NQS remains unchanged; and Exceeding NQS and Excellent are grouped as Above NQS. This grouping follows the ordering of the official NQS rating levels and avoids retaining two extremely small classes (https://www.acecqa.gov.au/assessment/assessment-and-rating-process).
+
+Among services with a recorded rating, 1,264 are Below NQS, 12,748 are Meeting NQS, and 3,148 are Above NQS. A further 1,023 services have no recorded rating and will not be used as labelled observations in the classification analysis.
+
+## Predictors, Stakeholders and Significance
+
+Candidate predictors include service type, number of approved places, operating schedules, state, service age, provider age, and provider scale. Current and previous rating information will be excluded from the predictors to prevent target leakage.
+
+The main stakeholders are education and care regulatory authorities, service providers, and policy researchers. The analysis will assess whether observable service and provider characteristics contain useful information for distinguishing recorded NQS rating tiers. It examines predictive associations and does not replace the formal assessment and rating process.
+
+```{r}
+# R code....
+
+```
+
+# Consider & Gather Data
+
+## Outcome Definition
+
+```{r} 
+services$RatingTier <- NA
+
+services$RatingTier[
+  services$OverallRating %in%
+    c("Significant Improvement Required", "Working Towards NQS")
+] <- "Below NQS"
+
+services$RatingTier[
+  services$OverallRating == "Meeting NQS"
+] <- "Meeting NQS"
+
+services$RatingTier[
+  services$OverallRating %in%
+    c("Exceeding NQS", "Excellent")
+] <- "Above NQS"
+
+services$RatingTier <- factor(
+  services$RatingTier,
+  levels = c("Below NQS", "Meeting NQS", "Above NQS")
+)
+
+table(services$RatingTier, useNA = "ifany")
+round(prop.table(table(services$RatingTier)) * 100, 1)
+```
+
+# Exploratory Data Analysis (EDA)
+
+Useful numerical and graphical outputs should be shown in the report. 
+
+
+```{r} 
+library(ggplot2)
+
+ggplot(mtcars, aes(x = wt, y = mpg)) +
+  geom_point(aes(color = cyl)) +
+  geom_smooth(method = "lm", formula = y ~ x) +
+  labs(title = "MPG vs. Weight",
+       x = "Weight (1000 lbs)",
+       y = "Miles per Gallon")
+```
+
+# Project Planning
+
+
+
+# References
+
+List all the references used throughout the report using APA7 Style.
+
+# AI Use Statment
+If applicable,
+
+I acknowledge the use of [AI tool + version, publisher and URL] to generate [summary of what was generated].
