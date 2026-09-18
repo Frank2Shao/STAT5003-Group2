@@ -1,0 +1,8 @@
+measure,value
+Service rows,18183
+Unique service IDs,18183
+Provider rows,10095
+Unique provider IDs in provider register,10095
+Unique provider IDs represented by services,7209
+Service rows unmatched to provider register,0
+Labelled analysis rows,17160

@@ -1,16 +1,19 @@
 ---
-title: "STAT5003 Assignment Title"
+title: "Classifying NQS Rating Tiers for Australian Education and Care Services"
 author: "G02"
 output:
-  html_document:G
-    code_folding: hide 
+  html_document:
+    code_folding: hide
+    toc: true
 ---
 
-```{r}
+```{r setup, include=FALSE}
 knitr::opts_chunk$set(
   echo = TRUE,
   message = FALSE,
-  warning = FALSE
+  warning = FALSE,
+  fig.align = "center",
+  out.width = "90%"
 )
 
 library(readr)
@@ -18,15 +21,14 @@ library(dplyr)
 library(tidyr)
 library(ggplot2)
 
-services <- read.csv("Education-services-au-export.csv")
-
-providers <- read.csv("Approved-providers-au-export.csv")
+source("R/01_prepare_data.R")
+source("R/02_data_quality.R")
 ```
 
 
 # Introduction
 
-This template is provided as a guide, and you are welcome to modify it as needed.
+Australian education and care services are assessed against the National Quality Standard (NQS). This project examines whether administrative characteristics available in the national registers contain useful information for classifying a service's recorded quality tier.
 
 # Framing & Dataset Selection
 
@@ -36,11 +38,11 @@ To what extent can service type, service scale, operating patterns, geographic l
 
 ## Unit of Analysis and Outcome
 
-Each observation represents one approved Australian education and care service, uniquely identified by its `ServiceApprovalNumber`. The services register contains 18,183 unique services.
+Each observation represents one approved Australian education and care service, uniquely identified by its `ServiceApprovalNumber`. The services register contains `r format(nrow(services_raw), big.mark = ",")` unique services.
 
 The outcome is a three-level categorical variable derived from `OverallRating`. Significant Improvement Required and Working Towards NQS are grouped as Below NQS; Meeting NQS remains unchanged; and Exceeding NQS and Excellent are grouped as Above NQS. This grouping follows the ordering of the official NQS rating levels and avoids retaining two extremely small classes (https://www.acecqa.gov.au/assessment/assessment-and-rating-process).
 
-Among services with a recorded rating, 1,264 are Below NQS, 12,748 are Meeting NQS, and 3,148 are Above NQS. A further 1,023 services have no recorded rating and will not be used as labelled observations in the classification analysis.
+Among services with a recorded rating, `r rating_distribution$count[rating_distribution$rating_tier == "Below NQS"]` are Below NQS, `r format(rating_distribution$count[rating_distribution$rating_tier == "Meeting NQS"], big.mark = ",")` are Meeting NQS, and `r format(rating_distribution$count[rating_distribution$rating_tier == "Above NQS"], big.mark = ",")` are Above NQS. A further `r format(sum(is.na(services_raw$OverallRating)), big.mark = ",")` services have no recorded rating and are excluded from the labelled classification data.
 
 ## Predictors, Stakeholders and Significance
 
@@ -48,56 +50,81 @@ Candidate predictors include service type, number of approved places, operating 
 
 The main stakeholders are education and care regulatory authorities, service providers, and policy researchers. The analysis will assess whether observable service and provider characteristics contain useful information for distinguishing recorded NQS rating tiers. It examines predictive associations and does not replace the formal assessment and rating process.
 
-```{r}
-# R code....
-
-```
-
 # Consider & Gather Data
 
-## Outcome Definition
+## Data Sources and Snapshot
 
-```{r} 
-services$RatingTier <- NA
+The Australian Children's Education & Care Quality Authority (ACECQA) publishes national registers of approved education and care services and approved providers. The registers are sourced from the National Quality Agenda IT System and updated daily. The two CSV files used here were downloaded on 18 September 2026:
 
-services$RatingTier[
-  services$OverallRating %in%
-    c("Significant Improvement Required", "Working Towards NQS")
-] <- "Below NQS"
+- `Education-services-au-export.csv`
+- `Approved-providers-au-export.csv`
 
-services$RatingTier[
-  services$OverallRating == "Meeting NQS"
-] <- "Meeting NQS"
+The services register contains service characteristics, operating schedules, seven Quality Area ratings, and the recorded overall rating. The providers register contains provider identity, location, approval date, trading name, and approval conditions. The official source is <https://www.acecqa.gov.au/resources/national-registers>.
 
-services$RatingTier[
-  services$OverallRating %in%
-    c("Exceeding NQS", "Excellent")
-] <- "Above NQS"
-
-services$RatingTier <- factor(
-  services$RatingTier,
-  levels = c("Below NQS", "Meeting NQS", "Above NQS")
+```{r source-dimensions}
+knitr::kable(
+  source_dimensions,
+  col.names = c("Dataset", "Rows", "Columns"),
+  caption = "Dimensions of the source and analysis datasets"
 )
-
-table(services$RatingTier, useNA = "ifany")
-round(prop.table(table(services$RatingTier)) * 100, 1)
 ```
+
+## Data Linkage and Derived Variables
+
+The services register is the primary table. It was linked to the providers register using `Provider Approval Number`, a many-services-to-one-provider relationship. The `Service Approval Number` field in the provider export was entirely empty and was therefore not used. Both retained identifiers were unique at their expected unit of analysis: there were no duplicate `ServiceApprovalNumber` values in the services register and no duplicate provider approval numbers in the providers register. All `r format(nrow(services_raw), big.mark = ",")` service rows matched a provider record.
+
+Provider scale was derived as the number of registered services linked to each provider. Service and provider ages were calculated from their approval dates using the fixed snapshot date. Operating start and end times were converted into open-day and weekly-hour summaries for annual, school-term, and holiday schedules. Identifiers remain in the processed file for audit and linkage but will not be predictors.
+
+```{r linkage-summary}
+knitr::kable(
+  linkage_summary,
+  col.names = c("Linkage check", "Value"),
+  caption = "Data linkage validation"
+)
+```
+
+## Outcome Definition and Leakage Control
+
+```{r outcome-code}
+services_base %>%
+  count(rating_tier, .drop = FALSE) %>%
+  mutate(percent = round(100 * n / sum(n), 1))
+```
+
+The outcome consolidates the five recorded NQS levels into three ordered tiers: Significant Improvement Required and Working Towards NQS become **Below NQS**; Meeting NQS remains **Meeting NQS**; and Exceeding NQS and Excellent become **Above NQS**. This retains the policy ordering while avoiding two classes with only four and 25 observations.
+
+Current Quality Area 1--7 ratings and all current or previous overall-rating fields are excluded from the modelling data. The official overall rating is directly determined from the Quality Area ratings, so including them would reveal the outcome rather than test whether service and provider characteristics are informative.
+
+```{r class-distribution, fig.height=4.2}
+rating_tier_plot
+```
+
+The outcome is imbalanced: Meeting NQS represents `r rating_distribution$percent[rating_distribution$rating_tier == "Meeting NQS"]`% of labelled services, compared with `r rating_distribution$percent[rating_distribution$rating_tier == "Below NQS"]`% Below NQS and `r rating_distribution$percent[rating_distribution$rating_tier == "Above NQS"]`% Above NQS. A stratified split and imbalance-aware evaluation metrics are therefore required.
+
+## Dataset Requirement Justification
+
+The dataset satisfies four assignment criteria:
+
+1. **Large:** The services register contains `r format(nrow(services_raw), big.mark = ",")` observations, exceeding the 10,000-row threshold. The approximately 15 MB source file is manageable in R, although a single scripted preparation step is used to avoid repeating joins and time conversions.
+2. **Messy:** There are `r format(sum(is.na(services_raw$OverallRating)), big.mark = ",")` missing outcomes and `r sum(is.na(services_raw$NumberOfApprovedPlaces))` missing approved-place values. Schedule fields contain substantial structural missingness because different service types use different operating schedules. Provider trading names and approval conditions are also incomplete. Provider scale is strongly right-skewed, ranging from one to `r max(provider_scale$provider_service_count)` linked services, and requires further outlier assessment.
+3. **Integrated:** Two official registers are linked by `Provider Approval Number`. The linkage is validated for uniqueness and completeness, and provider-level age and scale are added to each service record.
+4. **Multi-class:** The original outcome has five rating levels. The modelling outcome has three ordered classes with marked imbalance, as shown above.
+
+Although the linked raw data exceeds 100 columns, the project does not rely on the **Complex** criterion because duplicated administrative fields and leakage-prone rating fields must be removed before modelling.
+
+```{r missingness-plot, fig.height=5.1}
+missingness_plot
+```
+
+Missing operating-pattern values are not automatically equivalent to data errors: some are structurally absent because a service does not use that schedule type. The preprocessing plan should therefore preserve explicit schedule-type indicators and distinguish structural absence from genuinely missing values. Numeric missing values will require imputation within resampling, rather than before the train/test split.
+
+## Final Analysis Variables
+
+The processed labelled dataset contains `r nrow(analysis_data)` services and `r ncol(analysis_data)` variables, including two audit identifiers and the outcome. The remaining fields cover service type and scale, location, service offerings, operating patterns, provider age, and provider scale. A complete variable dictionary is generated as `data/processed/acecqa_variable_dictionary.csv`.
 
 # Exploratory Data Analysis (EDA)
 
-Useful numerical and graphical outputs should be shown in the report. 
-
-
-```{r} 
-library(ggplot2)
-
-ggplot(mtcars, aes(x = wt, y = mpg)) +
-  geom_point(aes(color = cyl)) +
-  geom_smooth(method = "lm", formula = y ~ x) +
-  labs(title = "MPG vs. Weight",
-       x = "Weight (1000 lbs)",
-       y = "Miles per Gallon")
-```
+Categorical, numerical, and operating-pattern EDA will be added by the assigned members using the common processed dataset generated above.
 
 # Project Planning
 
@@ -105,9 +132,11 @@ ggplot(mtcars, aes(x = wt, y = mpg)) +
 
 # References
 
-List all the references used throughout the report using APA7 Style.
+Australian Children's Education & Care Quality Authority. (n.d.). *Assessment and rating process*. https://www.acecqa.gov.au/assessment/assessment-and-rating-process
 
-# AI Use Statment
+Australian Children's Education & Care Quality Authority. (n.d.). *National registers*. Retrieved September 18, 2026, from https://www.acecqa.gov.au/resources/national-registers
+
+# AI Use Statement
 If applicable,
 
 I acknowledge the use of [AI tool + version, publisher and URL] to generate [summary of what was generated].

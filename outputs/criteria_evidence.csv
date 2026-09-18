@@ -1,0 +1,5 @@
+criterion,evidence
+Large,"18,183 service observations (>10,000)."
+Messy,"1023 missing outcomes, 356 missing approved-place values, and structurally missing schedule fields."
+Integrated,Services and providers linked by Provider Approval Number; 0 unmatched service rows.
+Multi-class,"Five recorded NQS levels, consolidated into three ordered modelling tiers."
