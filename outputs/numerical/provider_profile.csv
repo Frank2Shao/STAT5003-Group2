@@ -1,0 +1,3 @@
+variable,n,observed,missing,missing_percent,min,q1,median,q3,max,mean,sd,iqr_flags,negative,zero
+provider_age_years,6885,6885,0,0,0.12,8.04,13.97,14.72,19.44,11.626165577342048,4.772364932594843,0,0,0
+provider_service_count,6885,6885,0,0,1,1,1,1,611,2.591721132897488,14.553051320809837,1564,0,0

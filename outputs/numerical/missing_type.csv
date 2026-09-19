@@ -1,0 +1,9 @@
+variable,service_type,n,missing,missing_percent
+number_approved_places,Centre-Based Care,16853,0,0
+number_approved_places,Family Day Care,307,307,100
+provider_age_years,Centre-Based Care,16853,0,0
+provider_age_years,Family Day Care,307,0,0
+provider_service_count,Centre-Based Care,16853,0,0
+provider_service_count,Family Day Care,307,0,0
+service_age_years,Centre-Based Care,16853,1,0.005933661662611998
+service_age_years,Family Day Care,307,0,0
