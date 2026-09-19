@@ -1,0 +1,12 @@
+var1,var2,cramers_v
+oshc_after_school,oshc_before_school,0.9271664471630573
+oshc_after_school,oshc_vacation_care,0.8138572095955494
+long_day_care,operating_pattern,0.7981720450138198
+oshc_before_school,oshc_vacation_care,0.7887263656628964
+provider_state,state,0.7805857527137596
+provider_state,provider_state_matches_service,0.7319602020102973
+operating_pattern,oshc_vacation_care,0.7264218544504192
+service_has_conditions,state,0.7076886205939228
+operating_pattern,oshc_after_school,0.6882515885667859
+operating_pattern,oshc_before_school,0.6520480122003274
+provider_state,service_has_conditions,0.5236369348674248
