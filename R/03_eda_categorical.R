@@ -186,7 +186,7 @@ categorical_outcome_plot <- ggplot(
   categorical_crosstab_plot_data,
   aes(x = count, y = level, fill = rating_tier)
 ) +
-  geom_col(position = "fill", width = 0.5) +
+  geom_col(position = "fill", width = 0.6) +
   facet_wrap(~facet_label, scales = "free_y", ncol = 4) +
   scale_fill_manual(
     values = c(
@@ -204,7 +204,7 @@ categorical_outcome_plot <- ggplot(
     fill = NULL
   ) +
   theme_minimal(base_size = 10) +
-  theme(
+  theme(axis.text.y = element_text(size=6),
     panel.grid.major.y = element_blank(),
     legend.position = "top"
   )
