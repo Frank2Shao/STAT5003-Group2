@@ -1,0 +1,7 @@
+service_type,rating_tier,services,missing_hours,median_open_days,median_weekly_hours
+Centre-Based Care,Above NQS,3130,28,5,50
+Centre-Based Care,Below NQS,1209,8,5,55
+Centre-Based Care,Meeting NQS,12514,77,5,55
+Family Day Care,Above NQS,18,4,5,41.25
+Family Day Care,Below NQS,55,5,5,40
+Family Day Care,Meeting NQS,234,20,5,40

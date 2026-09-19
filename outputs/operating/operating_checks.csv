@@ -1,0 +1,6 @@
+check,count
+Missing max weekly hours,142
+Zero max weekly hours,7
+More than 100 hours per week,62
+More than 168 hours per week,0
+Open days outside 0 to 7,0

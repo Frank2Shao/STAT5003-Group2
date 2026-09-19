@@ -1,0 +1,70 @@
+---
+title: "Member E: Operating-pattern EDA"
+output:
+  html_document:
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE
+)
+
+
+knitr::opts_knit$set(
+  root.dir = normalizePath("..")
+)
+```
+
+```{r run-analysis, include=FALSE}
+source("R/05_eda_operating.R")
+```
+
+## Operating-pattern EDA
+
+This section examines whether recorded operating patterns differ across NQS rating tiers.
+
+### Operating hours across NQS rating tiers
+
+```{r operating-summary-table, echo=FALSE}
+display_summary <- operating_by_tier
+
+names(display_summary) <- c(
+  "NQS rating tier",
+  "Number of services",
+  "Missing weekly hours",
+  "Median open days",
+  "Median weekly hours",
+  "Q1 weekly hours",
+  "Q3 weekly hours"
+)
+
+knitr::kable(
+  display_summary,
+  digits = 1,
+  caption = "Operating-pattern summary by recorded NQS rating tier"
+)
+```
+Across all three rating tiers, the median service operated five days per week. However, the median maximum recorded weekly hours were lower for Above NQS services (50 hours) than for Below NQS and Meeting NQS services (55 hours each). Above NQS services also showed a wider lower range, with an interquartile range of 33.9–55.0 hours, compared with 50.0–58.8 hours for Below NQS and 50.0–57.5 hours for Meeting NQS. Missing weekly-hours values were uncommon in every tier. These differences in description suggested that weekly operating hours may contribute to classification, however, the substantial overlap between tiers indicates that this variable might not be sufficient enough on its own.
+
+### Distribution of weekly operating hours
+
+```{r operating-hours-plot, echo=FALSE, out.width="100%", fig.cap="Maximum recorded weekly operating hours by NQS rating tier and service type."}
+plot_path <- normalizePath(
+  "figures/operating_hours_by_rating.png",
+  winslash = "/"
+)
+
+knitr::include_graphics(
+  plot_path,
+  rel_path = FALSE
+)
+```
+
+The boxplots show that different service types have different operating hours. Among Centre-Based Care services, Above NQS services had a lower median and a broader lower range than the Below NQS and Meeting NQS groups. Family Day Care services displayed a different pattern, but this comparison is less stable because only 307 Family Day Care services were available, including only 18 Above NQS services. Several services recorded very long weekly operating hours, although none exceeded the feasible maximum of 168 hours per week. These results support retaining service type alongside operating hours and suggest that their relationship with the rating tier may not be adequately represented by a single linear effect.
+
+### Open days and association with weekly hours
+
+Weekly open days showed very limited variation: 92.4% of services had five recorded open days per week. The 142 services with zero recorded open days corresponded to the 142 missing values for maximum weekly hours, suggesting that zero represents unavailable or incomplete operating-time information rather than confirmed closure. Weekly open days and maximum weekly hours had a moderate overall Spearman correlation of 0.381. The correlation was 0.375 for Centre-Based Care and 0.797 for Family Day Care. Hence, weekly open days might provide limited independent classification information for most services, while its stronger relationship with operating hours among Family Day Care services should be considered when assessing predictor redundancy and interactions.

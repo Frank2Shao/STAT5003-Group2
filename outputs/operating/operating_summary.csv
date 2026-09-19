@@ -1,0 +1,9 @@
+variable,observed,missing,missing_percent,minimum,median,maximum
+annual_open_days,17160,0,0,0,5,7
+annual_weekly_hours,10445,6715,39.1,0,55,167.88333333333333
+school_term_open_days,17160,0,0,0,0,7
+school_term_weekly_hours,7727,9433,55,0,26.25,167.88333333333333
+holiday_open_days,17160,0,0,0,0,7
+holiday_weekly_hours,4762,12398,72.2,0,55,167.88333333333333
+weekly_open_days,17160,0,0,0,5,7
+max_weekly_hours,17018,142,0.8,0,55,167.88333333333333
