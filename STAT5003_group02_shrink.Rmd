@@ -1,0 +1,281 @@
+---
+title: "Classifying NQS Rating Tiers for Australian Education and Care Services"
+author: "G02"
+output:
+  html_document:
+    code_folding: hide
+    toc: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.align = "center",
+  out.width = "90%"
+)
+
+library(readr)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+source("R/01_prepare_data.R")
+source("R/02_data_quality.R")
+source("R/03_eda_categorical.R")
+source("R/04_eda_numerical.R")
+source("R/05_eda_operating.R")
+```
+
+
+# Introduction
+
+Australian education and care services are assessed against the National Quality Standard (NQS). This project examines whether administrative characteristics available in the national registers contain useful information for classifying a service's recorded quality tier.
+
+# Framing & Dataset Selection
+
+## Research Question
+
+To what extent can service type, service scale, operating patterns, geographic location, and provider characteristics be used to classify an Australian education and care service's recorded NQS rating tier as Below NQS, Meeting NQS, or Above NQS?
+
+## Unit of Analysis and Outcome
+
+Each observation represents one approved Australian education and care service, uniquely identified by its `ServiceApprovalNumber`. The services register contains `r format(nrow(services_raw), big.mark = ",")` unique services.
+
+The outcome is a three-level categorical variable derived from `OverallRating`. Significant Improvement Required and Working Towards NQS are grouped as Below NQS; Meeting NQS remains unchanged; and Exceeding NQS and Excellent are grouped as Above NQS. This grouping follows the ordering of the official NQS rating levels and avoids retaining two extremely small classes (https://www.acecqa.gov.au/assessment/assessment-and-rating-process).
+
+Among services with a recorded rating, `r rating_distribution$count[rating_distribution$rating_tier == "Below NQS"]` are Below NQS, `r format(rating_distribution$count[rating_distribution$rating_tier == "Meeting NQS"], big.mark = ",")` are Meeting NQS, and `r format(rating_distribution$count[rating_distribution$rating_tier == "Above NQS"], big.mark = ",")` are Above NQS. A further `r format(sum(is.na(services_raw$OverallRating)), big.mark = ",")` services have no recorded rating and are excluded from the labelled classification data.
+
+## Predictors, Stakeholders and Significance
+
+Candidate predictors include service type, number of approved places, operating schedules, state, service age, provider age, and provider scale. Current and previous rating information will be excluded from the predictors to prevent target leakage.
+
+The main stakeholders are education and care regulatory authorities, service providers, and policy researchers. Regulatory authorities assess and rate services and promote continuous quality improvement under the NQF (ACECQA, n.d.). The analysis may help to analysis service profiles related to recorded NQS rating tiers and hence inform regulatory and policy decisions. Service providers may use the analysis to compair their service against similar services and identify potential areas for improvement. Policy researchers may use the analysis to explore the relationship between service characteristics and quality outcomes, which may inform future research and policy development.
+
+# Consider & Gather Data
+
+## Data Sources and Snapshot
+
+The Australian Children's Education & Care Quality Authority (ACECQA) publishes national registers of approved education and care services and approved providers. The registers are sourced from the National Quality Agenda IT System and updated daily. The two CSV files used here were downloaded on 18 September 2026:
+
+- `Education-services-au-export.csv`
+- `Approved-providers-au-export.csv`
+
+The services register contains service characteristics, operating schedules, seven Quality Area ratings, and the recorded overall rating. The providers register contains provider identity, location, approval date, trading name, and approval conditions. The official source is <https://www.acecqa.gov.au/resources/national-registers>.
+
+<!-- ```{r source-dimensions}
+knitr::kable(
+  source_dimensions,
+  col.names = c("Dataset", "Rows", "Columns"),
+  caption = "Dimensions of the source and analysis datasets"
+)
+``` -->
+
+## Data Linkage and Derived Variables
+
+The services register is the primary table. It was linked to the providers register using `Provider Approval Number`, a many-services-to-one-provider relationship. The `Service Approval Number` field in the provider export was entirely empty and was therefore not used. Both retained identifiers were unique at their expected unit of analysis: there were no duplicate `ServiceApprovalNumber` values in the services register and no duplicate provider approval numbers in the providers register. All `r format(nrow(services_raw), big.mark = ",")` service rows matched a provider record.
+
+Provider scale was derived as the number of registered services linked to each provider. Service and provider ages were calculated from their approval dates using the fixed snapshot date. Operating start and end times were converted into open-day and weekly-hour summaries for annual, school-term, and holiday schedules. Identifiers remain in the processed file for audit and linkage but will not be predictors.
+
+<!-- ```{r linkage-summary}
+knitr::kable(
+  linkage_summary,
+  col.names = c("Linkage check", "Value"),
+  caption = "Data linkage validation"
+)
+``` -->
+
+## Outcome Definition and Leakage Control
+
+<!-- ```{r outcome-code}
+services_base %>%
+  count(rating_tier, .drop = FALSE) %>%
+  mutate(percent = round(100 * n / sum(n), 1))
+``` -->
+
+The outcome consolidates the five recorded NQS levels into three ordered tiers: Significant Improvement Required and Working Towards NQS become **Below NQS**; Meeting NQS remains **Meeting NQS**; and Exceeding NQS and Excellent become **Above NQS**. This retains the policy ordering while avoiding two classes with only four and 25 observations.
+
+Current Quality Area 1--7 ratings and all current or previous overall-rating fields are excluded from the modelling data. The official overall rating is directly determined from the Quality Area ratings, so including them would reveal the outcome rather than test whether service and provider characteristics are informative.
+
+```{r class-distribution, fig.height=4.2}
+rating_tier_plot
+```
+
+The outcome is imbalanced: Meeting NQS represents `r rating_distribution$percent[rating_distribution$rating_tier == "Meeting NQS"]`% of labelled services, compared with `r rating_distribution$percent[rating_distribution$rating_tier == "Below NQS"]`% Below NQS and `r rating_distribution$percent[rating_distribution$rating_tier == "Above NQS"]`% Above NQS. A stratified split and imbalance-aware evaluation metrics are therefore required.
+
+## Dataset Requirement Justification
+
+The dataset satisfies four assignment criteria:
+
+1. **Large:** The services register contains `r format(nrow(services_raw), big.mark = ",")` observations, exceeding the 10,000-row threshold. The approximately 15 MB source file is manageable in R, although a single scripted preparation step is used to avoid repeating joins and time conversions.
+2. **Messy:** There are `r format(sum(is.na(services_raw$OverallRating)), big.mark = ",")` missing outcomes and `r sum(is.na(services_raw$NumberOfApprovedPlaces))` missing approved-place values. Schedule fields contain substantial structural missingness because different service types use different operating schedules. Provider trading names and approval conditions are also incomplete. Provider scale is strongly right-skewed, ranging from one to `r max(provider_scale$provider_service_count)` linked services, and requires further outlier assessment.
+3. **Integrated:** Two official registers are linked by `Provider Approval Number`. The linkage is validated for uniqueness and completeness, and provider-level age and scale are added to each service record.
+4. **Multi-class:** The original outcome has five rating levels. The modelling outcome has three ordered classes with marked imbalance, as shown above.
+
+Although the linked raw data exceeds 100 columns, the project does not rely on the **Complex** criterion because duplicated administrative fields and leakage-prone rating fields must be removed before modelling.
+
+<!-- ```{r missingness-plot, fig.height=5.1}
+missingness_plot
+``` -->
+
+Missing operating-pattern values are not automatically equivalent to data errors: some are structurally absent because a service does not use that schedule type. The preprocessing plan should therefore preserve explicit schedule-type indicators and distinguish structural absence from genuinely missing values. Numeric missing values will require imputation within resampling, rather than before the train/test split.
+
+## Final Analysis Variables
+
+The processed labelled dataset contains `r nrow(analysis_data)` services and `r ncol(analysis_data)` variables, including two audit identifiers and the outcome. The remaining fields cover service type and scale, location, service offerings, operating patterns, provider age, and provider scale. A complete variable dictionary is generated as `data/processed/acecqa_variable_dictionary.csv`.
+
+# Exploratory Data Analysis (EDA)
+
+Categorical, numerical, and operating-pattern EDA will be added by the assigned members using the common processed dataset generated above.
+
+## Categorical Variables
+
+**Univariate Plot**
+
+Examining the distributions of categorical variables of registered services displays some potential issues with imbalanced variables:
+
+1. <u>Highly Imbalanced</u>: `temporarily_closed` (100% No), `service_type` (98% Centre-Based Care), `other_service` (96% No), `provider_has_conditions` (96% False), `preschool_part_school` (95% No). The variables have little to no variation and rare levels will likely produce unstable estimates.
+2. <u>Imbalanced</u>: `provider_state` and `state` both shows that most of the registered services are located in NSW, VIC, QLD. Trained model might under-perform for new observations with `state` and `provider_state` with values outside of those three states.
+
+<!-- ```{r univariate plot, fig.height=9}
+categorical_univariate_plot
+``` -->
+
+**Rating Tier vs. Categorical Predictor**
+
+Computing Cramer's V for each predictor to the target variable, the following variables showed strongest association: `preschool_standalone` (V=0.28), `oschc_after_school` (V=0.22), `oshc_before_school` (V=0.21), `oshc_vacation_care` (V=0.19), `operating_pattern` (V=0.16), `state` (V=0.14), and `preschool_part_school` (V=0.14). 
+Plotting stacked bar chart for each predictor and `rating_tier` pair showed a potential association between being a standalone preschools (`preschool_standalone`) and/or not offering OSHC (`oshc_after_school`, `oshc_before_school`, `oshc_vacation_care`) with a higher percentage of "Above NQS" in `rating_tier`.
+
+Additionally, the following categorical variables have very small Cramer's V value, indicating them as weak candidates for usefulness during training: `other_service` (V=0.02), `provider_has_conditions` (V=0.02), `provider_has_trading_name` (V=0.01), and `temporarily_closed` (V=0). Of these, `temporarily_closed` low values might be explained by its imbalanced value distribution of approximately 100% No.
+
+```{r cat v. rating plot, fig.height=10}
+categorical_outcome_plot
+```
+
+**Associations Between Predictors**
+
+Multi-collinearity between categorical predictors were checked to further identify redundant features. The results is shown in the heatmap below:
+
+<!-- ```{r pairwise plot, fig.height=9}
+categorical_pairwise_plot
+``` -->
+
+The categorical variables indicating if the service offers OSHC for before school, after school, and vacation care are highly related with V value between 0.73 to 0.93, showing that these variables may be better merged into a single feature for model training. Additionally, the variable `operating_pattern` has strong associations with `long_day_care` (V=0.8) and the OSHC cluster (V=0.65-0.73) indicates it partly encodes information from those variables.
+
+Furthermore, high associations between the variable `state` with `provider_state`, `service_has_conditions` and between `provider_state` and `provider_state_matches_service` shows that these variables are somewhat correlated.
+
+Overall, the graph showcased that certain categorical variables might be redundant. Some potential fixes might be to only include one representative variable per cluster, perform regularization on the cluster, or use tree-based models to avoid inflating variance.
+
+**Standardised Residuals**
+
+Further examinations of the seven categorical variables with the highest association with `rating_tier`, the following can be surmised:
+
+- `operating_pattern`: Services with "School terms" schedule are over-represented in "Above NQS" (+25) and "Multiple schedules" are over-represented in "Meeting NQS".
+- Services that offers OSHC are over-represented in "Meeting NQS" (+17.8 to +21.9) but under-represented in "Above NQS" (-24.7 to -29.1).
+- `preschool_part_school`: Services offering part school-based preschool or kindergarten is over-represented in "Above NQS" (+18.2) and under-represented in "Meeting NQS" (-14.3).
+- `preschool_standalone`: Contains the largest residual of the seven variables, with a value of 36.7 for standalone schools with "Above NQS" rating. Both other rating tier values are under-represented.
+- `state`: WA is over-represented in "Meeting NQS" and under-represented in "Above NQS". VIC is under-represented in "Below NQS" and over-represented in "Above NQS". SA is over-represented in "Below NQS" and under-represented in "Meeting NQS". ACT is over-represented in "Above NQS" and under-represented in "Meeting NQS".
+
+<!-- ```{r standardised residuals plot, fig.height=7.5}
+categorical_residual_plot
+``` -->
+
+## Numerical predictors
+
+The analysis uses the **17,160 labelled services** prepared by Members A/B. Four numerical predictors describe capacity, service approval age, provider approval age and provider scale. Ages use the fixed snapshot date of 18 September 2026; they measure years since recorded approval, not necessarily years of actual operation. Provider scale counts all registered services attached to the provider, including unlabelled services. All summaries below are service-weighted and use available observations, without imputation.
+
+<!-- ```{r d-summary}
+d_display <- d_by_tier |>
+  mutate(Variable = factor(variable, levels=d_vars,
+    labels=c('Approved places','Service approval age (years)',
+             'Provider approval age (years)','Provider service count')),
+    summary=sprintf('%.1f [%.1f, %.1f]',median,q1,q3)) |>
+  select(Variable,rating_tier,summary) |>
+  pivot_wider(names_from=rating_tier,values_from=summary) |> arrange(Variable)
+knitr::kable(d_display,caption='Median [Q1, Q3] by rating tier (original units).')
+``` -->
+
+**Distributions and missingness.** Approved places range from 6 to 477 (median 60; mean 69.6). All 307 Family Day Care services lack this field, while all 16,853 Centre-Based Care services have it; therefore, capacity comparisons describe Centre-Based Care only. One service approval age is missing; provider age and scale are complete. Provider scale is strongly right-skewed (median 7, mean 85.0, maximum 611). The 1.5-IQR rule flags 388 capacity values and 2,811 service rows for provider scale; these are screening flags, not evidence of erroneous records. Large providers recur across services. Across the 6,885 distinct providers represented in the labelled data, median provider scale is only 1 (mean 2.59), illustrating the effect of service weighting. Approval ages are concentrated around 14.7 years: the full raw register records 1 January 2012 for 6,071 service approvals. This date clustering requires caution when interpreting age as experience.
+
+```{r d-rating-figure, fig.width=9, fig.height=5.7, out.width='100%'}
+d_rating_plot
+```
+
+**Relationships with rating tier.** Above NQS services have a smaller median capacity (54 places) than Meeting NQS (64) and Below NQS (60), with considerable overlap. Above NQS services also have a higher lower quartile of service approval age (14.62 years versus 7.87 and 6.83 years), although the Meeting and Above medians are both 14.71 years. Median provider age increases from 13.06 to 14.13 to 14.71 years across Below, Meeting and Above NQS. Provider scale is not monotonically related to the ordered tiers: the respective medians are 2, 8 and 4. These patterns motivate multivariable classification, but do not establish causation or out-of-sample predictive performance.
+
+**Relationships among predictors and modelling implications.** Service and provider ages have a moderate positive Spearman correlation (rho = 0.421); capacity and service age are negatively associated (rho = -0.266). The remaining pairwise correlations have absolute values below 0.13. No pair warrants automatic removal solely on this evidence. Within-service-type summaries retain the general age pattern, while the Family Day Care subgroup is small (307) and lacks capacity data. Preserve service type and structural capacity missingness; use an explicit not-recorded indicator with a documented algorithm-compatible placeholder if needed, rather than interpreting absence as zero capacity. Any estimated imputation, transformations and scaling must be learned within training folds. Compare log1p count transformations for scale-sensitive models and retain plausible extremes unless source checks identify errors. Because services share providers, evaluate a provider-grouped split for generalisation to unseen providers and specify whether deployment concerns existing or new providers. The descriptive EDA uses the complete labelled snapshot, so a later holdout from this same snapshot is not wholly untouched by exploration. Exclude identifiers and all rating-derived predictors; judge classification using macro-F1 and per-class recall alongside accuracy and a majority-class baseline (74.29%).
+
+## Operating-pattern EDA
+
+This section examines whether recorded operating patterns differ across NQS rating tiers.
+
+### Operating hours across NQS rating tiers
+
+<!-- ```{r operating-summary-table, echo=FALSE}
+display_summary <- operating_by_tier
+
+names(display_summary) <- c(
+  "NQS rating tier",
+  "Number of services",
+  "Missing weekly hours",
+  "Median open days",
+  "Median weekly hours",
+  "Q1 weekly hours",
+  "Q3 weekly hours"
+)
+
+knitr::kable(
+  display_summary,
+  digits = 1,
+  caption = "Operating-pattern summary by recorded NQS rating tier"
+)
+``` -->
+Across all three rating tiers, the median service operated five days per week. However, the median maximum recorded weekly hours were lower for Above NQS services (50 hours) than for Below NQS and Meeting NQS services (55 hours each). Above NQS services also showed a wider lower range, with an interquartile range of 33.9–55.0 hours, compared with 50.0–58.8 hours for Below NQS and 50.0–57.5 hours for Meeting NQS. Missing weekly-hours values were uncommon in every tier. These differences in description suggested that weekly operating hours may contribute to classification, however, the substantial overlap between tiers indicates that this variable might not be sufficient enough on its own.
+
+### Distribution of weekly operating hours
+
+```{r operating-hours-plot, echo=FALSE, out.width="100%", fig.cap="Maximum recorded weekly operating hours by NQS rating tier and service type."}
+plot_path <- normalizePath(
+  "figures/operating_hours_by_rating.png",
+  winslash = "/"
+)
+
+knitr::include_graphics(
+  plot_path,
+  rel_path = FALSE
+)
+```
+
+The boxplots show that different service types have different operating hours. Among Centre-Based Care services, Above NQS services had a lower median and a broader lower range than the Below NQS and Meeting NQS groups. Family Day Care services displayed a different pattern, but this comparison is less stable because only 307 Family Day Care services were available, including only 18 Above NQS services. Several services recorded very long weekly operating hours, although none exceeded the feasible maximum of 168 hours per week. These results support retaining service type alongside operating hours and suggest that their relationship with the rating tier may not be adequately represented by a single linear effect.
+
+### Open days and association with weekly hours
+
+Weekly open days showed very limited variation: 92.4% of services had five recorded open days per week. The 142 services with zero recorded open days corresponded to the 142 missing values for maximum weekly hours, suggesting that zero represents unavailable or incomplete operating-time information rather than confirmed closure. Weekly open days and maximum weekly hours had a moderate overall Spearman correlation of 0.381. The correlation was 0.375 for Centre-Based Care and 0.797 for Family Day Care. Hence, weekly open days might provide limited independent classification information for most services, while its stronger relationship with operating hours among Family Day Care services should be considered when assessing predictor redundancy and interactions.
+
+## EDA summary and modelling implications
+
+The EDA shows substantial class imbalance, with Meeting NQS accounting for 74.3% of labelled services. Service offerings, operating pattern and geographic location showed the strongest categorical associations with the rating tier, although several related predictors, particularly the OSHC indicators and state variables, may contain redundant information. Numerical predictors such as approved capacity, approval ages and provider scale differed across rating tiers, but their distributions overlapped considerably and some were strongly skewed. Weekly operating hours also varied across rating tiers and service types, whereas weekly open days showed little variation for most services. Structural missingness was associated with service type, particularly for approved capacity and operating schedules. Overall, no individual predictor clearly separates the three rating tiers. The modelling workflow should therefore combine multiple predictors, account for class imbalance and structural missingness, and compare models that can represent both simple and non-linear relationships.
+
+# Project Planning
+
+## Preprocessing Plan
+
+## Model Plan
+
+## Evaluation Plan
+
+## Timeline, Responsibilities and Backup Plans
+
+# References
+
+Australian Children’s Education & Care Quality Authority. (n.d.). *Contact your regulatory authority*. https://www.acecqa.gov.au/help/contact-your-regulatory-authority
+
+Australian Children's Education & Care Quality Authority. (n.d.). *Assessment and rating process*. https://www.acecqa.gov.au/assessment/assessment-and-rating-process
+
+Australian Children's Education & Care Quality Authority. (n.d.). *National registers*. Retrieved September 18, 2026, from https://www.acecqa.gov.au/resources/national-registers
+
+# AI Use Statement
+If applicable,
+
+I acknowledge the use of [AI tool + version, publisher and URL] to generate [summary of what was generated].
