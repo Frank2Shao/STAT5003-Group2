@@ -49,7 +49,7 @@ Among services with a recorded rating, `r rating_distribution$count[rating_distr
 
 Candidate predictors include service type, number of approved places, operating schedules, state, service age, provider age, and provider scale. Current and previous rating information will be excluded from the predictors to prevent target leakage.
 
-The main stakeholders are education and care regulatory authorities, service providers, and policy researchers. The analysis will assess whether observable service and provider characteristics contain useful information for distinguishing recorded NQS rating tiers. It examines predictive associations and does not replace the formal assessment and rating process.
+The main stakeholders are education and care regulatory authorities, service providers, and policy researchers. Regulatory authorities assess and rate services and promote continuous quality improvement under the NQF (ACECQA, n.d.). The analysis may help to analysis service profiles related to recorded NQS rating tiers and hence inform regulatory and policy decisions. Service providers may use the analysis to compair their service against similar services and identify potential areas for improvement. Policy researchers may use the analysis to explore the relationship between service characteristics and quality outcomes, which may inform future research and policy development.
 
 # Consider & Gather Data
 
@@ -185,6 +185,8 @@ categorical_residual_plot
 
 
 # References
+
+Australian Children’s Education & Care Quality Authority. (n.d.). *Contact your regulatory authority*. https://www.acecqa.gov.au/help/contact-your-regulatory-authority
 
 Australian Children's Education & Care Quality Authority. (n.d.). *Assessment and rating process*. https://www.acecqa.gov.au/assessment/assessment-and-rating-process
 
