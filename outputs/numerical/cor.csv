@@ -1,0 +1,7 @@
+var1,var2,n_complete,spearman
+number_approved_places,service_age_years,16852,-0.26591763204466545
+number_approved_places,provider_age_years,16853,-0.12767453282281108
+number_approved_places,provider_service_count,16853,0.04014014532954463
+service_age_years,provider_age_years,17159,0.42070259831510165
+service_age_years,provider_service_count,17159,-0.0831340026931138
+provider_age_years,provider_service_count,17160,0.11610122570625439

@@ -1,0 +1,28 @@
+## Numerical predictors (Member D)
+
+```{r d-analysis, message=FALSE, warning=FALSE, results='hide'}
+source('R/04_eda_numerical.R')
+```
+
+The analysis uses the **17,160 labelled services** prepared by Members A/B. Four numerical predictors describe capacity, service approval age, provider approval age and provider scale. Ages use the fixed snapshot date of 18 September 2026; they measure years since recorded approval, not necessarily years of actual operation. Provider scale counts all registered services attached to the provider, including unlabelled services. All summaries below are service-weighted and use available observations, without imputation.
+
+```{r d-summary}
+d_display <- d_by_tier |>
+  mutate(Variable = factor(variable, levels=d_vars,
+    labels=c('Approved places','Service approval age (years)',
+             'Provider approval age (years)','Provider service count')),
+    summary=sprintf('%.1f [%.1f, %.1f]',median,q1,q3)) |>
+  select(Variable,rating_tier,summary) |>
+  pivot_wider(names_from=rating_tier,values_from=summary) |> arrange(Variable)
+knitr::kable(d_display,caption='Median [Q1, Q3] by rating tier (original units).')
+```
+
+**Distributions and missingness.** Approved places range from 6 to 477 (median 60; mean 69.6). All 307 Family Day Care services lack this field, while all 16,853 Centre-Based Care services have it; therefore, capacity comparisons describe Centre-Based Care only. One service approval age is missing; provider age and scale are complete. Provider scale is strongly right-skewed (median 7, mean 85.0, maximum 611). The 1.5-IQR rule flags 388 capacity values and 2,811 service rows for provider scale; these are screening flags, not evidence of erroneous records. Large providers recur across services. Across the 6,885 distinct providers represented in the labelled data, median provider scale is only 1 (mean 2.59), illustrating the effect of service weighting. Approval ages are concentrated around 14.7 years: the full raw register records 1 January 2012 for 6,071 service approvals. This date clustering requires caution when interpreting age as experience.
+
+```{r d-rating-figure, fig.width=9, fig.height=5.7, out.width='100%'}
+d_rating_plot
+```
+
+**Relationships with rating tier.** Above NQS services have a smaller median capacity (54 places) than Meeting NQS (64) and Below NQS (60), with considerable overlap. Above NQS services also have a higher lower quartile of service approval age (14.62 years versus 7.87 and 6.83 years), although the Meeting and Above medians are both 14.71 years. Median provider age increases from 13.06 to 14.13 to 14.71 years across Below, Meeting and Above NQS. Provider scale is not monotonically related to the ordered tiers: the respective medians are 2, 8 and 4. These patterns motivate multivariable classification, but do not establish causation or out-of-sample predictive performance.
+
+**Relationships among predictors and modelling implications.** Service and provider ages have a moderate positive Spearman correlation (rho = 0.421); capacity and service age are negatively associated (rho = -0.266). The remaining pairwise correlations have absolute values below 0.13. No pair warrants automatic removal solely on this evidence. Within-service-type summaries retain the general age pattern, while the Family Day Care subgroup is small (307) and lacks capacity data. Preserve service type and structural capacity missingness; use an explicit not-recorded indicator with a documented algorithm-compatible placeholder if needed, rather than interpreting absence as zero capacity. Any estimated imputation, transformations and scaling must be learned within training folds. Compare log1p count transformations for scale-sensitive models and retain plausible extremes unless source checks identify errors. Because services share providers, evaluate a provider-grouped split for generalisation to unseen providers and specify whether deployment concerns existing or new providers. The descriptive EDA uses the complete labelled snapshot, so a later holdout from this same snapshot is not wholly untouched by exploration. Exclude identifiers and all rating-derived predictors; judge classification using macro-F1 and per-class recall alongside accuracy and a majority-class baseline (74.29%).

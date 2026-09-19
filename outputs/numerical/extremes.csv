@@ -1,0 +1,21 @@
+service_id,provider_id,service_type,rating_tier,variable,value
+SE-40003003,PR-00007013,Centre-Based Care,Meeting NQS,number_approved_places,477
+SE-40005713,PR-40005980,Centre-Based Care,Below NQS,number_approved_places,470
+SE-00000858,PR-00000051,Centre-Based Care,Meeting NQS,number_approved_places,400
+SE-00013815,PR-40002651,Centre-Based Care,Above NQS,number_approved_places,400
+SE-00005728,PR-40026645,Centre-Based Care,Above NQS,number_approved_places,400
+SE-00008841,PR-00004542,Centre-Based Care,Meeting NQS,provider_age_years,19.44
+SE-00008760,PR-00004237,Centre-Based Care,Above NQS,provider_age_years,19.1
+SE-00007677,PR-00005157,Centre-Based Care,Above NQS,provider_age_years,18.39
+SE-00002420,PR-00001242,Centre-Based Care,Meeting NQS,provider_age_years,17.9
+SE-00013544,PR-00003669,Centre-Based Care,Below NQS,provider_age_years,17.66
+SE-00012600,PR-00001129,Centre-Based Care,Meeting NQS,provider_service_count,611
+SE-00012601,PR-00001129,Centre-Based Care,Meeting NQS,provider_service_count,611
+SE-00012603,PR-00001129,Centre-Based Care,Meeting NQS,provider_service_count,611
+SE-00012604,PR-00001129,Centre-Based Care,Meeting NQS,provider_service_count,611
+SE-00012605,PR-00001129,Centre-Based Care,Meeting NQS,provider_service_count,611
+SE-00007925,PR-00003289,Centre-Based Care,Meeting NQS,service_age_years,32.22
+SE-00008476,PR-00005185,Centre-Based Care,Above NQS,service_age_years,20.87
+SE-00008370,PR-00004861,Centre-Based Care,Meeting NQS,service_age_years,20.71
+SE-00006419,PR-00005518,Centre-Based Care,Meeting NQS,service_age_years,20.56
+SE-00007321,PR-00003287,Centre-Based Care,Meeting NQS,service_age_years,20.53

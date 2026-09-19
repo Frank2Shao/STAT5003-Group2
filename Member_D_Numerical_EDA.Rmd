@@ -1,0 +1,65 @@
+---
+title: 'Member D: Numerical EDA of NQS Rating Tiers'
+author: 'STAT5003 Group 2 - Member D contribution'
+output:
+  html_document:
+    code_folding: hide
+    toc: true
+    self_contained: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_knit$set(root.dir=normalizePath('.'))
+knitr::opts_chunk$set(echo=TRUE,message=FALSE,warning=FALSE,fig.align='center')
+```
+
+```{r d-child, child='reports/member_d_section.Rmd'}
+```
+
+## Supporting checks (keep outside the six-page group report)
+
+```{r d-profile-table}
+knitr::kable(d_profile |> select(variable,observed,missing,min,median,mean,max,iqr_flags),digits=2)
+```
+
+```{r d-distribution, fig.width=9, fig.height=6}
+d_distribution_plot
+```
+
+```{r d-correlation, fig.width=7, fig.height=5}
+d_correlation_plot
+knitr::kable(d_cor,digits=3,caption='Pairwise complete sample sizes and Spearman correlations.')
+```
+
+```{r d-service-type, fig.width=10, fig.height=11}
+d_type_plot
+```
+
+The Family Day Care capacity panel is absent because no values are recorded. These subgroup checks do not adjust for state, service offerings or other potential confounders. They are descriptive rather than hypothesis tests: repeated services within providers violate the independence assumed by simple unclustered tests.
+
+```{r d-date-audit}
+knitr::kable(d_date_peaks,caption='Most common approval dates in the full raw registers.')
+```
+
+## Optional individual model proposal: Random forest
+
+This is a **provisional model choice for team coordination**, not a fitted result. A random forest is suitable for exploring nonlinear relationships and interactions among age, capacity, provider scale and categorical predictors. It does not require numerical standardisation. Retain service type, encode categorical values consistently, and handle missing values within each training fold, distinguishing the structurally unrecorded capacity of Family Day Care. Exclude all rating-derived variables and the two IDs from predictors, while retaining provider ID for grouped resampling.
+
+Use a fixed sufficiently large forest (for example, 500 trees) and tune the number of candidate predictors per split and minimum terminal-node size; compare unweighted fitting with class weighting selected by training-only validation. Use macro-F1 as the primary tuning criterion and report recall for each tier, a confusion matrix and accuracy against the majority baseline. Provider-grouped evaluation should be used when the intended task is prediction for unseen providers. Strengths include flexible effects and interactions; limitations include reduced interpretability, possible majority-class dominance and difficulty extrapolating beyond observed predictor ranges. Importance scores describe predictive contribution and must not be interpreted as causal effects. The proposal must be coordinated with other members to avoid duplicate model choices.
+
+The proposed implementation is R package `ranger`; its documented controls include `num.trees`, `mtry`, `min.node.size` and `class.weights` ([official package manual](https://cran.r-project.org/web/packages/ranger/ranger.pdf)).
+
+## Full runnable analysis code
+
+```{r d-full-code, eval=FALSE, code=readLines("R/04_eda_numerical.R")}
+```
+
+## Reproducibility and AI disclosure
+
+The analysis script is `R/04_eda_numerical.R`; its input is the unmodified A/B dataset `data/processed/acecqa_analysis.csv`. The preparation branch used was `ab-data-preparation`, commit `2e553ab4140bf8017522cd749b819298efefedd6`. C's submitted code was inspected for compatibility but is not duplicated here. Numerical results and figures are regenerated when this document is knitted. This is a standalone contribution with supporting detail, not the final six-page group submission.
+
+Suggested disclosure to review and incorporate: OpenAI Codex was used to help write and execute numerical EDA code, prepare visualisations and draft interpretation and modelling suggestions. The submitting student should review the code, results and final wording and take responsibility for the submitted contribution.
+
+```{r d-session}
+sessionInfo()
+```
