@@ -1,0 +1,8 @@
+measure,value
+Missing OverallRating values,1023
+Missing NumberOfApprovedPlaces values,356
+Missing provider trading names,4062
+Missing provider conditions,9971
+Duplicate service IDs,0
+Duplicate provider IDs,0
+Maximum services linked to one provider,611

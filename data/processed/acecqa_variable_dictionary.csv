@@ -1,0 +1,32 @@
+variable,role,type,description
+service_id,Identifier,Character,Unique service approval number; excluded from modelling.
+provider_id,Identifier,Character,Provider approval number used for linkage; excluded from modelling.
+rating_tier,Outcome,Categorical,"Below NQS, Meeting NQS, or Above NQS."
+service_type,Predictor,Categorical,Centre-Based Care or Family Day Care.
+state,Predictor,Categorical,State or territory of the service.
+number_approved_places,Predictor,Numeric,Maximum approved service places.
+service_age_years,Predictor,Numeric,Years between service approval and the snapshot date.
+long_day_care,Predictor,Categorical,Whether long day care is offered.
+preschool_part_school,Predictor,Categorical,Whether school-based preschool or kindergarten is offered.
+preschool_standalone,Predictor,Categorical,Whether standalone preschool or kindergarten is offered.
+oshc_after_school,Predictor,Categorical,Whether after-school care is offered.
+oshc_before_school,Predictor,Categorical,Whether before-school care is offered.
+oshc_vacation_care,Predictor,Categorical,Whether vacation care is offered.
+other_service,Predictor,Categorical,Whether another service type is recorded.
+service_has_conditions,Predictor,Logical,Whether conditions on service approval are recorded.
+temporarily_closed,Predictor,Categorical,Whether the service is temporarily closed.
+annual_open_days,Predictor,Numeric,Number of days with annual operating hours.
+annual_weekly_hours,Predictor,Numeric,Total recorded annual operating hours in a standard week.
+school_term_open_days,Predictor,Numeric,Number of operating days during school terms.
+school_term_weekly_hours,Predictor,Numeric,Total recorded operating hours during a school-term week.
+holiday_open_days,Predictor,Numeric,Number of operating days during holiday care.
+holiday_weekly_hours,Predictor,Numeric,Total recorded operating hours during a holiday-care week.
+weekly_open_days,Predictor,Numeric,Maximum recorded open days across schedule types.
+max_weekly_hours,Predictor,Numeric,Maximum recorded weekly hours across schedule types.
+operating_pattern,Predictor,Categorical,"Annual, school-term, holiday, multiple, or unrecorded schedule."
+provider_state,Predictor,Categorical,State or territory recorded for the provider.
+provider_age_years,Predictor,Numeric,Years between provider approval and the snapshot date.
+provider_service_count,Predictor,Numeric,Number of services in the register linked to the provider.
+provider_has_trading_name,Predictor,Logical,Whether a trading name is recorded.
+provider_has_conditions,Predictor,Logical,Whether conditions on provider approval are recorded.
+provider_state_matches_service,Predictor,Categorical,Whether provider and service states are the same.
