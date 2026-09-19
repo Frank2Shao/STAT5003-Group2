@@ -77,9 +77,9 @@ categorical_freq_table <- categorical_data_long |>
 categorical_univariate_plot <- ggplot(
   categorical_freq_table, aes(x=percent, y=level)
 ) + 
-  geom_col(fill = "#4C78A8", width = 0.7) +
-  geom_text(aes(label = paste0(percent, "%")), hjust = -0.15, size = 2.8) +
-  facet_wrap(~variable, scales = "free_y", ncol = 3)+
+  geom_col(fill = "#4C78A8", width = 0.6) +
+  geom_text(aes(label = paste0(percent, "%")), hjust = -0.15, size = 2) +
+  facet_wrap(~variable, scales = "free_y", ncol = 4)+
   scale_x_continuous(
     limits = c(0,115),
     breaks = c(0,50,100),
@@ -91,7 +91,8 @@ categorical_univariate_plot <- ggplot(
     y = NULL
   ) +
   theme_minimal(base_size = 10) +
-  theme(panel.grid.major.y = element_blank())
+  theme(panel.grid.major.y = element_blank(),
+        axis.text.y = element_text(size=5))
 
 # ---Predictors vs. Outcome---
 # Row Percentages
@@ -185,8 +186,8 @@ categorical_outcome_plot <- ggplot(
   categorical_crosstab_plot_data,
   aes(x = count, y = level, fill = rating_tier)
 ) +
-  geom_col(position = "fill", width = 0.75) +
-  facet_wrap(~facet_label, scales = "free_y", ncol = 3) +
+  geom_col(position = "fill", width = 0.5) +
+  facet_wrap(~facet_label, scales = "free_y", ncol = 4) +
   scale_fill_manual(
     values = c(
       "Below NQS" = "#C44E52",
@@ -267,7 +268,7 @@ categorical_pairwise_plot <- ggplot(
   aes(x = var1, y = var2, fill=cramers_v)
 ) +
   geom_tile(colour = "white") +
-  geom_text(aes(label = round(cramers_v, 2)), size = 2.6) +
+  geom_text(aes(label = round(cramers_v, 2)), size = 2) +
   scale_fill_gradient(
     low = "white",
     high = "#4C78A8",
@@ -281,8 +282,10 @@ categorical_pairwise_plot <- ggplot(
     y = NULL,
     fill = "V"
   ) +
-  theme_minimal(base_size = 10) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1), panel.grid = element_blank())
+  theme_minimal(base_size = 6) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size=5), 
+        axis.text.y = element_text(size=5),
+        panel.grid = element_blank())
 
 # ---Saving Outputs---
 dir.create("outputs/categorical", showWarnings = FALSE)
@@ -296,8 +299,8 @@ write_csv(categorical_redundant_pairs, "outputs/categorical/redundant_pairs.csv"
 ggsave("figures/categorical_univariate.png", categorical_univariate_plot,
        width = 10, height = 9, dpi = 220)
 ggsave("figures/categorical_vs_rating_tier.png", categorical_outcome_plot,
-       width = 11, height = 10, dpi = 220)
+       width = 16, height = 10, dpi = 220)
 ggsave("figures/categorical_residuals.png", categorical_residual_plot,
-       width = 9, height = 9, dpi = 220)
+       width = 16, height = 9, dpi = 220)
 ggsave("figures/categorical_pairwise_cramers_v.png", categorical_pairwise_plot,
        width = 8.5, height = 7.5, dpi = 220)
