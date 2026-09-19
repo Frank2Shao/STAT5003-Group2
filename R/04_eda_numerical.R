@@ -66,10 +66,10 @@ d_distribution_plot <- ggplot(filter(d_plot_data,!is.na(plotted)),aes(plotted))+
 # Full range retained; transformed axes compress the tails without dropping services.
 d_rating_plot <- ggplot(filter(d_plot_data,!is.na(plotted)),aes(rating_tier,plotted,fill=rating_tier))+
   geom_boxplot(width=.58,outlier.size=.45,outlier.alpha=.15)+
-  facet_wrap(~panel,scales='free_y',ncol=2)+scale_fill_manual(values=d_cols)+
+  facet_wrap(~panel,scales='free_y',ncol=4)+scale_fill_manual(values=d_cols)+
   labs(title='Numerical predictors by recorded NQS tier',
   subtitle='Full range retained; count variables shown as log10(1+x)',x=NULL,y=NULL)+d_theme+
-  theme(legend.position='none')
+  theme(legend.position='none', axis.text.y = element_text(size=7), axis.text.x = element_text(size=7))
 d_type_plot <- ggplot(filter(d_plot_data,!is.na(plotted)),aes(rating_tier,plotted,fill=rating_tier))+
   geom_boxplot(width=.55,outlier.size=.3,outlier.alpha=.1)+
   facet_wrap(vars(panel,service_type),scales='free_y',ncol=2)+scale_fill_manual(values=d_cols)+

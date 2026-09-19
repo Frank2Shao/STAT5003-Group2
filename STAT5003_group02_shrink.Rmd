@@ -98,7 +98,7 @@ The outcome consolidates the five recorded NQS levels into three ordered tiers: 
 
 Current Quality Area 1--7 ratings and all current or previous overall-rating fields are excluded from the modelling data. The official overall rating is directly determined from the Quality Area ratings, so including them would reveal the outcome rather than test whether service and provider characteristics are informative.
 
-```{r class-distribution, fig.height=4.2}
+```{r class-distribution, out.width="50%"}
 rating_tier_plot
 ```
 
@@ -180,7 +180,7 @@ knitr::kable(d_display,caption='Median [Q1, Q3] by rating tier (original units).
 
 **Distributions and missingness.** Approved places range from 6 to 477 (median 60; mean 69.6). All 307 Family Day Care services lack this field, while all 16,853 Centre-Based Care services have it; therefore, capacity comparisons describe Centre-Based Care only. One service approval age is missing; provider age and scale are complete. Provider scale is strongly right-skewed (median 7, mean 85.0, maximum 611). The 1.5-IQR rule flags 388 capacity values and 2,811 service rows for provider scale; these are screening flags, not evidence of erroneous records. Large providers recur across services. Across the 6,885 distinct providers represented in the labelled data, median provider scale is only 1 (mean 2.59), illustrating the effect of service weighting. Approval ages are concentrated around 14.7 years: the full raw register records 1 January 2012 for 6,071 service approvals. This date clustering requires caution when interpreting age as experience.
 
-```{r d-rating-figure, fig.width=9, fig.height=5.7, out.width='100%'}
+```{r d-rating-figure, fig.width=12, fig.height=4, out.width='80%'}
 d_rating_plot
 ```
 
@@ -217,7 +217,7 @@ Across all three rating tiers, the median service operated five days per week. H
 
 ### Distribution of weekly operating hours
 
-```{r operating-hours-plot, echo=FALSE, out.width="100%", fig.cap="Maximum recorded weekly operating hours by NQS rating tier and service type."}
+```{r operating-hours-plot, echo=FALSE, out.width="80%", fig.cap="Maximum recorded weekly operating hours by NQS rating tier and service type."}
 plot_path <- normalizePath(
   "figures/operating_hours_by_rating.png",
   winslash = "/"
