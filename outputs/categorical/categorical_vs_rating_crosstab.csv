@@ -1,0 +1,149 @@
+variable,level,rating_tier,count,level_total,row_percent
+long_day_care,No,Below NQS,553,8061,6.9
+long_day_care,No,Meeting NQS,5804,8061,72
+long_day_care,No,Above NQS,1704,8061,21.1
+long_day_care,Yes,Below NQS,711,9099,7.8
+long_day_care,Yes,Meeting NQS,6944,9099,76.3
+long_day_care,Yes,Above NQS,1444,9099,15.9
+operating_pattern,Annual,Below NQS,644,8748,7.4
+operating_pattern,Annual,Meeting NQS,6516,8748,74.5
+operating_pattern,Annual,Above NQS,1588,8748,18.2
+operating_pattern,Holiday care,Below NQS,11,71,15.5
+operating_pattern,Holiday care,Meeting NQS,57,71,80.3
+operating_pattern,Holiday care,Above NQS,3,71,4.2
+operating_pattern,Multiple schedules,Below NQS,466,5091,9.2
+operating_pattern,Multiple schedules,Meeting NQS,4158,5091,81.7
+operating_pattern,Multiple schedules,Above NQS,467,5091,9.2
+operating_pattern,No schedule recorded,Below NQS,13,142,9.2
+operating_pattern,No schedule recorded,Meeting NQS,97,142,68.3
+operating_pattern,No schedule recorded,Above NQS,32,142,22.5
+operating_pattern,School terms,Below NQS,130,3108,4.2
+operating_pattern,School terms,Meeting NQS,1920,3108,61.8
+operating_pattern,School terms,Above NQS,1058,3108,34
+oshc_after_school,No,Below NQS,729,11335,6.4
+oshc_after_school,No,Meeting NQS,7827,11335,69.1
+oshc_after_school,No,Above NQS,2779,11335,24.5
+oshc_after_school,Yes,Below NQS,535,5825,9.2
+oshc_after_school,Yes,Meeting NQS,4921,5825,84.5
+oshc_after_school,Yes,Above NQS,369,5825,6.3
+oshc_before_school,No,Below NQS,798,11856,6.7
+oshc_before_school,No,Meeting NQS,8247,11856,69.6
+oshc_before_school,No,Above NQS,2811,11856,23.7
+oshc_before_school,Yes,Below NQS,466,5304,8.8
+oshc_before_school,Yes,Meeting NQS,4501,5304,84.9
+oshc_before_school,Yes,Above NQS,337,5304,6.4
+oshc_vacation_care,No,Below NQS,798,12253,6.5
+oshc_vacation_care,No,Meeting NQS,8641,12253,70.5
+oshc_vacation_care,No,Above NQS,2814,12253,23
+oshc_vacation_care,Yes,Below NQS,466,4907,9.5
+oshc_vacation_care,Yes,Meeting NQS,4107,4907,83.7
+oshc_vacation_care,Yes,Above NQS,334,4907,6.8
+other_service,No,Below NQS,1202,16441,7.3
+other_service,No,Meeting NQS,12251,16441,74.5
+other_service,No,Above NQS,2988,16441,18.2
+other_service,Yes,Below NQS,62,719,8.6
+other_service,Yes,Meeting NQS,497,719,69.1
+other_service,Yes,Above NQS,160,719,22.3
+preschool_part_school,No,Below NQS,1223,16309,7.5
+preschool_part_school,No,Meeting NQS,12294,16309,75.4
+preschool_part_school,No,Above NQS,2792,16309,17.1
+preschool_part_school,Yes,Below NQS,41,851,4.8
+preschool_part_school,Yes,Meeting NQS,454,851,53.3
+preschool_part_school,Yes,Above NQS,356,851,41.8
+preschool_standalone,No,Below NQS,1174,14141,8.3
+preschool_standalone,No,Meeting NQS,11081,14141,78.4
+preschool_standalone,No,Above NQS,1886,14141,13.3
+preschool_standalone,Yes,Below NQS,90,3019,3
+preschool_standalone,Yes,Meeting NQS,1667,3019,55.2
+preschool_standalone,Yes,Above NQS,1262,3019,41.8
+provider_has_conditions,FALSE,Below NQS,1207,16406,7.4
+provider_has_conditions,FALSE,Meeting NQS,12154,16406,74.1
+provider_has_conditions,FALSE,Above NQS,3045,16406,18.6
+provider_has_conditions,TRUE,Below NQS,57,754,7.6
+provider_has_conditions,TRUE,Meeting NQS,594,754,78.8
+provider_has_conditions,TRUE,Above NQS,103,754,13.7
+provider_has_trading_name,FALSE,Below NQS,454,6392,7.1
+provider_has_trading_name,FALSE,Meeting NQS,4800,6392,75.1
+provider_has_trading_name,FALSE,Above NQS,1138,6392,17.8
+provider_has_trading_name,TRUE,Below NQS,810,10768,7.5
+provider_has_trading_name,TRUE,Meeting NQS,7948,10768,73.8
+provider_has_trading_name,TRUE,Above NQS,2010,10768,18.7
+provider_state,ACT,Below NQS,23,294,7.8
+provider_state,ACT,Meeting NQS,145,294,49.3
+provider_state,ACT,Above NQS,126,294,42.9
+provider_state,Missing,Below NQS,13,110,11.8
+provider_state,Missing,Meeting NQS,77,110,70
+provider_state,Missing,Above NQS,20,110,18.2
+provider_state,NSW,Below NQS,373,5415,6.9
+provider_state,NSW,Meeting NQS,3997,5415,73.8
+provider_state,NSW,Above NQS,1045,5415,19.3
+provider_state,NT,Below NQS,11,167,6.6
+provider_state,NT,Meeting NQS,142,167,85
+provider_state,NT,Above NQS,14,167,8.4
+provider_state,QLD,Below NQS,304,4293,7.1
+provider_state,QLD,Meeting NQS,3369,4293,78.5
+provider_state,QLD,Above NQS,620,4293,14.4
+provider_state,SA,Below NQS,162,1035,15.7
+provider_state,SA,Meeting NQS,624,1035,60.3
+provider_state,SA,Above NQS,249,1035,24.1
+provider_state,TAS,Below NQS,28,205,13.7
+provider_state,TAS,Meeting NQS,137,205,66.8
+provider_state,TAS,Above NQS,40,205,19.5
+provider_state,VIC,Below NQS,243,4696,5.2
+provider_state,VIC,Meeting NQS,3479,4696,74.1
+provider_state,VIC,Above NQS,974,4696,20.7
+provider_state,WA,Below NQS,107,945,11.3
+provider_state,WA,Meeting NQS,778,945,82.3
+provider_state,WA,Above NQS,60,945,6.3
+provider_state_matches_service,Missing,Below NQS,13,111,11.7
+provider_state_matches_service,Missing,Meeting NQS,78,111,70.3
+provider_state_matches_service,Missing,Above NQS,20,111,18
+provider_state_matches_service,No,Below NQS,200,2693,7.4
+provider_state_matches_service,No,Meeting NQS,2248,2693,83.5
+provider_state_matches_service,No,Above NQS,245,2693,9.1
+provider_state_matches_service,Yes,Below NQS,1051,14356,7.3
+provider_state_matches_service,Yes,Meeting NQS,10422,14356,72.6
+provider_state_matches_service,Yes,Above NQS,2883,14356,20.1
+service_has_conditions,FALSE,Below NQS,744,11265,6.6
+service_has_conditions,FALSE,Meeting NQS,8195,11265,72.7
+service_has_conditions,FALSE,Above NQS,2326,11265,20.6
+service_has_conditions,TRUE,Below NQS,520,5895,8.8
+service_has_conditions,TRUE,Meeting NQS,4553,5895,77.2
+service_has_conditions,TRUE,Above NQS,822,5895,13.9
+service_type,Centre-Based Care,Below NQS,1209,16853,7.2
+service_type,Centre-Based Care,Meeting NQS,12514,16853,74.3
+service_type,Centre-Based Care,Above NQS,3130,16853,18.6
+service_type,Family Day Care,Below NQS,55,307,17.9
+service_type,Family Day Care,Meeting NQS,234,307,76.2
+service_type,Family Day Care,Above NQS,18,307,5.9
+state,ACT,Below NQS,25,345,7.2
+state,ACT,Meeting NQS,170,345,49.3
+state,ACT,Above NQS,150,345,43.5
+state,Missing,Meeting NQS,1,1,100
+state,NSW,Below NQS,407,5837,7
+state,NSW,Meeting NQS,4328,5837,74.1
+state,NSW,Above NQS,1102,5837,18.9
+state,NT,Below NQS,15,220,6.8
+state,NT,Meeting NQS,188,220,85.5
+state,NT,Above NQS,17,220,7.7
+state,QLD,Below NQS,255,3188,8
+state,QLD,Meeting NQS,2467,3188,77.4
+state,QLD,Above NQS,466,3188,14.6
+state,SA,Below NQS,213,1281,16.6
+state,SA,Meeting NQS,811,1281,63.3
+state,SA,Above NQS,257,1281,20.1
+state,TAS,Below NQS,34,233,14.6
+state,TAS,Meeting NQS,152,233,65.2
+state,TAS,Above NQS,47,233,20.2
+state,VIC,Below NQS,185,4671,4
+state,VIC,Meeting NQS,3435,4671,73.5
+state,VIC,Above NQS,1051,4671,22.5
+state,WA,Below NQS,130,1384,9.4
+state,WA,Meeting NQS,1196,1384,86.4
+state,WA,Above NQS,58,1384,4.2
+temporarily_closed,No,Below NQS,1257,17096,7.4
+temporarily_closed,No,Meeting NQS,12700,17096,74.3
+temporarily_closed,No,Above NQS,3139,17096,18.4
+temporarily_closed,Yes,Below NQS,7,64,10.9
+temporarily_closed,Yes,Meeting NQS,48,64,75
+temporarily_closed,Yes,Above NQS,9,64,14.1

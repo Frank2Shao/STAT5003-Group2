@@ -1,0 +1,17 @@
+variable,n_levels,missing_count,top_level,top_percent,smallest_level,smallest_count,rare_levels,missing_percent,flag
+temporarily_closed,2,0,No,99.6,Yes,64,1,0,Near-constant (>=95% one level)
+service_type,2,0,Centre-Based Care,98.2,Family Day Care,307,0,0,Near-constant (>=95% one level)
+other_service,2,0,No,95.8,Yes,719,0,0,Near-constant (>=95% one level)
+provider_has_conditions,2,0,FALSE,95.6,TRUE,754,0,0,Near-constant (>=95% one level)
+preschool_part_school,2,0,No,95,Yes,851,0,0,Near-constant (>=95% one level)
+provider_state_matches_service,3,111,Yes,83.7,Missing,111,1,0.65,Has rare levels (<1%) - consider collapsing
+preschool_standalone,2,0,No,82.4,Yes,3019,0,0,OK
+oshc_vacation_care,2,0,No,71.4,Yes,4907,0,0,OK
+oshc_before_school,2,0,No,69.1,Yes,5304,0,0,OK
+oshc_after_school,2,0,No,66.1,Yes,5825,0,0,OK
+service_has_conditions,2,0,FALSE,65.6,TRUE,5895,0,0,OK
+provider_has_trading_name,2,0,TRUE,62.8,FALSE,6392,0,0,OK
+long_day_care,2,0,Yes,53,No,8061,0,0,OK
+operating_pattern,5,0,Annual,51,Holiday care,71,2,0,Has rare levels (<1%) - consider collapsing
+state,9,1,NSW,34,Missing,1,1,0.01,Has rare levels (<1%) - consider collapsing
+provider_state,9,110,NSW,31.6,Missing,110,2,0.64,Has rare levels (<1%) - consider collapsing

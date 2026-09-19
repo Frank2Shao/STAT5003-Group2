@@ -1,0 +1,51 @@
+variable,level,count,percent
+long_day_care,Yes,9099,53
+long_day_care,No,8061,47
+operating_pattern,Annual,8748,51
+operating_pattern,Multiple schedules,5091,30
+operating_pattern,School terms,3108,18
+operating_pattern,No schedule recorded,142,1
+operating_pattern,Holiday care,71,0
+oshc_after_school,No,11335,66
+oshc_after_school,Yes,5825,34
+oshc_before_school,No,11856,69
+oshc_before_school,Yes,5304,31
+oshc_vacation_care,No,12253,71
+oshc_vacation_care,Yes,4907,29
+other_service,No,16441,96
+other_service,Yes,719,4
+preschool_part_school,No,16309,95
+preschool_part_school,Yes,851,5
+preschool_standalone,No,14141,82
+preschool_standalone,Yes,3019,18
+provider_has_conditions,FALSE,16406,96
+provider_has_conditions,TRUE,754,4
+provider_has_trading_name,TRUE,10768,63
+provider_has_trading_name,FALSE,6392,37
+provider_state,NSW,5415,32
+provider_state,VIC,4696,27
+provider_state,QLD,4293,25
+provider_state,SA,1035,6
+provider_state,WA,945,6
+provider_state,ACT,294,2
+provider_state,TAS,205,1
+provider_state,NT,167,1
+provider_state,Missing,110,1
+provider_state_matches_service,Yes,14356,84
+provider_state_matches_service,No,2693,16
+provider_state_matches_service,Missing,111,1
+service_has_conditions,FALSE,11265,66
+service_has_conditions,TRUE,5895,34
+service_type,Centre-Based Care,16853,98
+service_type,Family Day Care,307,2
+state,NSW,5837,34
+state,VIC,4671,27
+state,QLD,3188,19
+state,WA,1384,8
+state,SA,1281,7
+state,ACT,345,2
+state,TAS,233,1
+state,NT,220,1
+state,Missing,1,0
+temporarily_closed,No,17096,100
+temporarily_closed,Yes,64,0
