@@ -1,0 +1,4 @@
+rating_tier,services,missing_hours,median_open_days,median_weekly_hours,q1_weekly_hours,q3_weekly_hours
+Above NQS,3148,32,5,50,33.925000000000004,55
+Below NQS,1264,13,5,55,50,58.75
+Meeting NQS,12748,97,5,55,50,57.5
