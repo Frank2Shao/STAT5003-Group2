@@ -1029,7 +1029,7 @@ predictors to prevent target leakage.</p>
 <p>The main stakeholders are education and care regulatory authorities,
 service providers, and policy researchers. Regulatory authorities assess
 and rate services and promote continuous quality improvement under the
-NQF (ACECQA, n.d.). The analysis may help to analysis service profiles
+NQF (ACECQA, n.d.). The analysis may identify service profiles
 related to recorded NQS rating tiers and hence inform regulatory and
 policy decisions. Service providers may use the analysis to compare
 their service against similar services and identify potential areas for
@@ -1088,7 +1088,7 @@ class-sensitive metrics.</li>
 <h2>Final Analysis Variables</h2>
 <p>The processed labelled dataset contains 17160 services and 31
 variables, including two audit identifiers and the outcome. The
-remaining fields cover service type and scale, location, service
+remaining fields cover service type and capacity, location, service
 offerings, operating patterns, provider age, and provider scale. A
 complete variable dictionary is generated as
 <code>data/processed/acecqa_variable_dictionary.csv</code>.</p>
@@ -1096,7 +1096,7 @@ complete variable dictionary is generated as
 </div>
 <div id="exploratory-data-analysis-eda" class="section level1">
 <h1>Exploratory Data Analysis (EDA)</h1>
-<p>Categorical, numerical, and operating-pattern EDA will be added by
+<p>Categorical, numerical, and operating-pattern EDA are added by
 the assigned members using the common processed dataset generated
 above.</p>
 <div id="categorical-predictors" class="section level2">
@@ -1387,8 +1387,8 @@ ggsave(&quot;figures/categorical_residuals.png&quot;, categorical_residual_plot,
 ggsave(&quot;figures/categorical_pairwise_cramers_v.png&quot;, categorical_pairwise_plot,
        width = 8.5, height = 7.5, dpi = 220)</code></pre>
 <p><strong>Variable Balance</strong></p>
-<p>Examining the distributions of categorical variables of the services
-indicate some imbalance in the variables:</p>
+<p>Examining the distributions of categorical variables indicates some 
+imbalance in the variables:</p>
 <ol style="list-style-type: decimal">
 <li><strong>Highly Imbalanced:</strong> <code>temporarily_closed</code>
 (100% No), <code>service_type</code> (98% Centre-Based Care),
@@ -1398,15 +1398,15 @@ indicate some imbalance in the variables:</p>
 to no variation and rare levels will likely produce unstable
 estimates.</li>
 <li><strong>Imbalanced:</strong> <code>provider_state</code> and
-<code>state</code> show that most of services are located in NSW, VIC,
-QLD. Trained model might under-perform for new services with locations
+<code>state</code> show that most services are located in NSW, VIC,
+QLD. A trained model might under-perform for new services with locations
 outside of NSW, VIC, and QLD.</li>
 </ol>
 <p><strong>Rating Tier vs. Categorical Predictor</strong></p>
 <p>Computing Cramer’s V for each predictor to the target variable, the
 following variables showed strongest association:
 <code>preschool_standalone</code> (V=0.28),
-<code>oschc_after_school</code> (V=0.22),
+<code>oshc_after_school</code> (V=0.22),
 <code>oshc_before_school</code> (V=0.21),
 <code>oshc_vacation_care</code> (V=0.19), <code>operating_pattern</code>
 (V=0.16), <code>state</code> (V=0.14), and
@@ -1417,7 +1417,7 @@ association between being a standalone preschools
 (<code>oshc_after_school</code>, <code>oshc_before_school</code>,
 <code>oshc_vacation_care</code>) with a higher percentage of “Above NQS”
 in <code>rating_tier</code>.</p>
-<p>Additionally, the some categorical variables have very small Cramer’s
+<p>Additionally, some categorical variables have very small Cramer’s
 V value, indicating them as weak candidates for usefulness during
 training. Of these, <code>temporarily_closed</code> low values might be
 explained by its imbalanced value distribution of approximately 100%
@@ -1900,10 +1900,10 @@ for Above NQS services (50 hours) than for Below NQS and Meeting NQS
 services (55 hours each). Above NQS services also showed a wider lower
 range, with an interquartile range of 33.9–55.0 hours, compared with
 50.0–58.8 hours for Below NQS and 50.0–57.5 hours for Meeting NQS.
-Missing weekly-hours values were uncommon in every tier. These
-differences in description suggested that weekly operating hours may
-contribute to classification, however, the substantial overlap between
-tiers indicates that this variable might not be sufficient enough on its
+Missing weekly-hours values were uncommon in every tier. These 
+descriptive differences suggest that weekly operating hours may 
+contribute to classification; however, the substantial overlap between 
+tiers indicates that this variable is unlikely to be sufficient on its 
 own.</p>
 </div>
 <div id="distribution-of-weekly-operating-hours" class="section level3">
@@ -2141,7 +2141,7 @@ training set and evaluated once on the held-out test set.</p>
 <ul>
 <li><strong>Week 7 – Finalise specifications:</strong> All members
 review the dataset, EDA findings and modelling plan; one coordinator
-integrates the report. <em>Backup:Versioned scripts and outputs allow
+integrates the report. <em>Backup: Versioned scripts and outputs allow
 restoration of the last working version.</em></li>
 <li><strong>Week 8 – Build the shared workflow:</strong> A two-member
 pair develops preprocessing and resampling, followed by group review.
