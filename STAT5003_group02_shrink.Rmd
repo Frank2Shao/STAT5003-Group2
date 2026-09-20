@@ -243,11 +243,104 @@ The EDA shows substantial class imbalance, with Meeting NQS accounting for 74.3%
 
 ## Preprocessing Plan
 
+Only the 17,160 services with a recorded rating_tier will be used for supervised modelling. Service and provider identifiers, all current and previous rating fields, and other variables that directly reveal the outcome will be excluded. The train/test split will be completed before any data-dependent preprocessing. All imputation, transformations, encoding and scaling parameters will then be estimated within each training fold to prevent data leakage.
+
+Structural absence will be distinguished from ordinary missingness. Service type and schedule indicators will be retained to represent unavailable capacity or operating-time information, while remaining numerical missing values will be median-imputed within training folds. Rare categorical levels will be collapsed and categorical predictors dummy-encoded where required. Near-zero-variance predictors will be removed, and highly redundant groups, including the OSHC indicators and overlapping location variables, will be reduced or combined for linear and distance-based models. Strongly right-skewed count variables, particularly provider scale, will be considered for log1p transformation. Numerical predictors will be centred and scaled for multinomial logistic regression, LDA, kNN and SVM, but not necessarily for Random Forest. Because Meeting NQS represents 74.3% of labelled services, stratified resampling and model-supported class weighting will be considered within training only.
+
 ## Model Plan
+
+All candidate models will exclude identifiers and rating-derived predictors. Imputation, encoding, transformations and scaling will be estimated within each training fold to prevent data leakage. The table therefore focuses on model-specific requirements.
+
+```{r model-plan-table, echo=FALSE, results='asis'}
+model_plan <- data.frame(
+  Model = c(
+    "Multinomial logistic regression",
+    "Linear discriminant analysis",
+    "k-nearest neighbours",
+    "Support vector machine",
+    "Random forest"
+  ),
+  
+  "EDA-based rationale" = c(
+    "An interpretable linear baseline for testing whether the combined service and provider characteristics distinguish the three overlapping rating tiers.",
+    
+    "Observed shifts in approval ages and other numerical predictors provide a basis for comparing class means using a low-variance linear classifier.",
+    
+    "Substantial overlap among numerical predictors motivates classification based on similarity between multivariable service profiles.",
+    
+    "Class overlap and possible nonlinear interactions between service type, operating hours and other predictors motivate soft-margin linear and RBF boundaries.",
+    
+    "Mixed predictors, skewed numerical variables and possible nonlinear interactions are suitable for a tree-based ensemble."
+  ),
+  
+  "Model-specific preparation and tuning" = c(
+    "Dummy encoding and fold-wise imputation/scaling. Tune regularisation strength and class weights.",
+    
+    "Dummy encoding; remove near-constant and highly correlated predictors; transform skewed counts and standardise. Consider class priors and shrinkage.",
+    
+    "Dummy encoding, fold-wise imputation, transformation and standardisation. Tune neighbour count and distance weighting.",
+    
+    "Dummy encoding, fold-wise imputation and scaling. Tune kernel, cost, RBF sigma and class weights.",
+    
+    "Handle missing and categorical values as required by the implementation; scaling is unnecessary. Tune trees, mtry, node size/depth and class weights."
+  ),
+  
+  "Main trade-off" = c(
+    "Fast and interpretable, but limited for nonlinear effects and interactions and does not use the ordering of the tiers.",
+    
+    "Transparent and efficient, but its Gaussian and equal-covariance assumptions are doubtful for this dataset.",
+    
+    "Can capture local nonlinear patterns, but is sensitive to scaling, irrelevant predictors, dimensionality and imbalance.",
+    
+    "Flexible in high-dimensional settings, but less interpretable and sensitive to scaling and hyperparameter selection.",
+    
+    "Captures nonlinearities and interactions, but is less interpretable and correlated predictors may distort variable importance."
+  ),
+  
+  check.names = FALSE
+)
+
+model_table <- knitr::kable(
+  model_plan,
+  format = "html",
+  row.names = FALSE,
+  caption = "Proposed classification models"
+)
+
+model_table <- sub(
+  "<table",
+  '<table class="model-plan-table"',
+  model_table,
+  fixed = TRUE
+)
+
+cat("
+<style>
+table.model-plan-table {
+  font-size: 90%;
+  line-height: 1.15;
+}
+
+table.model-plan-table th,
+table.model-plan-table td {
+  padding: 4px 6px;
+}
+</style>
+")
+
+cat(model_table)
+```
 
 ## Evaluation Plan
 
+The labelled data will be divided into an 80% training set and a 20% test set at the provider level, with approximate stratification by `rating_tier`, so that services from the same provider do not appear in both sets. The five models will be tuned using the same five-fold provider-grouped cross-validation splits within the training data. Macro-F1 will be the primary selection metric because it gives equal importance to all three rating tiers despite the class imbalance. Overall accuracy, per-class recall and confusion matrices will provide secondary assessment, with accuracy compared against the 74.3% majority-class baseline. Hyperparameters will be selected using mean cross-validation macro-F1, while fold-to-fold variability will also be examined. The selected model will then be refitted using the full training set and evaluated once on the held-out test set.
+
 ## Timeline, Responsibilities and Backup Plans
+- **Week 7 – Finalise specifications:** All members review the dataset, EDA findings and modelling plan; one coordinator integrates the report. *Backup:Versioned scripts and outputs allow restoration of the last working version.*
+- **Week 8 – Build the shared workflow:** A two-member pair develops preprocessing and resampling, followed by group review. *Backup: A simplified validated recipe will replace unsuccessful optional transformations or feature engineering.*
+- **Weeks 9–10 – Develop models:** Each member fits and tunes one classifier using the common cross-validation folds and reviews another model. *Backup: Unfinished work can be reassigned, with an untuned baseline retained if tuning fails.*
+- **Week 11 – Evaluate models:** An evaluation pair consolidates results, while model owners verify interpretations. *Backup: A second member will independently reproduce the selected workflow using saved scripts and seeds.*
+- **Week 12 – Finalise delivery:** A writing and presentation pair coordinates the report, slides and rehearsal, with approval from all members. *Backup: Shared files, a substitute presenter and an earlier internal deadline provide contingency.*
 
 # References
 
