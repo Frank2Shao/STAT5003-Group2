@@ -324,8 +324,10 @@ Australian Children's Education & Care Quality Authority. (n.d.). *National regi
 
 I, Wenchen Zhong (SID: 550245221), acknowledge the use of OpenAI Codex to assist with developing and debugging the initial R code  I reviewed and verified all related content.
 
-I, Khoa Tran (SID: 550339069), acknowledge the use of Anthropic's [Claude AI model Sonnet 5](https://claude.ai) to generate the initial code of the plots included in the EDA analysis section Categorical Predictors. I carefully checked the related content for accuracy.
+I, Khoa Tran (SID: 550339069), acknowledge the use of Anthropic's Claude AI model Sonnet 5 to generate the initial code of the plots included in the EDA analysis section Categorical Predictors. I carefully checked the related content for accuracy.
 
 I, Zixuan Zhao (SID: 550497901), acknowledge the use of OpenAl Codex as a supporting tool during the preparation of the R code, including code development and troubleshooting. I carefully checked the related content for accuracy.
 
 I, Jian Zhang (SID: 541018333), acknowledge the use of OpenAI ChatGPT to assist with generating and refining R code and HTML table formatting for the report. I carefully reviewed and verified the accuracy and appropriateness of the AI-assisted content before including it in the final submission.
+
+I, Yuzhi Shao(Frank) (SID: 550139687), acknowledge the use of OpenAl ChatGPT 5.6 Sol for teaching and debugging R code( which were all carefully checked after generation); formatting help on R markdown and HTML; grammar checking.
