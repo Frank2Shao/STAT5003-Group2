@@ -6,7 +6,7 @@ output:
     code_folding: hide
     toc: false
 ---
-```{css, echo=FALSE, include=FALSE}
+```{css, echo=FALSE}
 @media print {
   @page { size: A4; margin: 10mm; }
   html, body { font-size: 9.5pt !important; line-height: 1.25 !important; }
