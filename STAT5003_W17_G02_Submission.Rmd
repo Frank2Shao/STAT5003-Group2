@@ -1,0 +1,1511 @@
+---
+title: "Classifying NQS Rating Tiers for Australian Education and Care Services"
+author: "G02"
+output:
+  html_document:
+    code_folding: hide
+    toc: false
+---
+```{css, echo=FALSE, include=FALSE}
+@media print {
+  @page { size: A4; margin: 10mm; }
+  html, body { font-size: 9.5pt !important; line-height: 1.25 !important; }
+  body { margin: 0 !important; }
+  .main-container, .container-fluid.main-container {
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  h1 { font-size: 15pt; margin: 8px 0 4px; }
+  h2 { font-size: 12.5pt; margin: 6px 0 3px; }
+  h3, h4 { font-size: 11pt; margin: 5px 0 2px; }
+  p { margin: 0 0 4px; }
+  ul, ol { margin: 0 0 4px; padding-left: 18px; }
+  li { margin: 0; }
+  .btn-group, .code-folding-btn, .fold-btn, .tocify { display: none !important; }
+  img { max-width: 100% !important; max-height: 62mm; width: auto; height: auto; }
+  .figure, .caption, p.caption { margin: 2px 0; }
+  .caption, p.caption { font-size: 8pt; }
+  table { font-size: 8pt; margin-bottom: 4px; }
+  th, td { padding: 2px 4px !important; }
+  h1, h2, h3, h4 { page-break-after: avoid; }
+  img, table, tr { page-break-inside: avoid; }
+  #references { page-break-before: always; }
+}
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.align = "center",
+  out.width = "90%"
+)
+library(readr)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+```
+
+# Introduction
+
+Australian education and care services are assessed against the National Quality Standard (NQS). This project examines whether administrative characteristics available in the national registers contain useful information for classifying a service's recorded quality tier.
+
+# Framing & Dataset Selection
+
+## Research Question
+
+To what extent can service type, service capacity, operating patterns, geographic location, and provider characteristics be used to classify an Australian education and care service's recorded NQS rating tier as Below NQS, Meeting NQS, or Above NQS?
+
+## Unit of Analysis and Outcome
+
+```{r data preparation}
+snapshot_date <- as.Date("2026-09-18")
+
+services_raw <- read_csv(
+  "Education-services-au-export.csv",
+  na = c("", "NA"),
+  col_types = cols(.default = col_character()),
+  name_repair = "minimal",
+  show_col_types = FALSE
+)
+
+providers_raw <- read_csv(
+  "Approved-providers-au-export.csv",
+  na = c("", "NA"),
+  col_types = cols(.default = col_character()),
+  name_repair = "minimal",
+  show_col_types = FALSE
+)
+
+parse_dmy_date <- function(x) {
+  as.Date(as.character(x), format = "%d/%m/%Y")
+}
+
+time_to_minutes <- function(x) {
+  value <- trimws(as.character(x))
+  value <- gsub("\\.", ":", value)
+  valid <- !is.na(value) & grepl("^[0-9]{1,2}:[0-9]{2}(:[0-9]{2})?$", value)
+  result <- rep(NA_real_, length(value))
+  valid_parts <- strsplit(value[valid], ":", fixed = TRUE)
+  result[valid] <- vapply(valid_parts, function(parts) {
+    as.numeric(parts[1]) * 60 + as.numeric(parts[2])
+  }, numeric(1))
+  result
+}
+
+union_daily_hours <- function(data, start_columns, end_columns) {
+  start_matrix <- do.call(
+    cbind,
+    lapply(start_columns, function(column) time_to_minutes(data[[column]]))
+  )
+  end_matrix <- do.call(
+    cbind,
+    lapply(end_columns, function(column) time_to_minutes(data[[column]]))
+  )
+
+  if (is.null(dim(start_matrix))) {
+    start_matrix <- matrix(start_matrix, ncol = 1)
+    end_matrix <- matrix(end_matrix, ncol = 1)
+  }
+
+  overnight <- !is.na(start_matrix) & !is.na(end_matrix) &
+    end_matrix < start_matrix
+  end_matrix[overnight] <- end_matrix[overnight] + 24 * 60
+
+  vapply(seq_len(nrow(data)), function(row_index) {
+    starts <- start_matrix[row_index, ]
+    ends <- end_matrix[row_index, ]
+    valid <- !is.na(starts) & !is.na(ends)
+
+    if (!any(valid)) {
+      return(NA_real_)
+    }
+
+    starts <- starts[valid]
+    ends <- ends[valid]
+    ordering <- order(starts, ends)
+    starts <- starts[ordering]
+    ends <- ends[ordering]
+
+    total_minutes <- 0
+    current_start <- starts[1]
+    current_end <- ends[1]
+
+    if (length(starts) > 1) {
+      for (interval_index in 2:length(starts)) {
+        if (starts[interval_index] <= current_end) {
+          current_end <- max(current_end, ends[interval_index])
+        } else {
+          total_minutes <- total_minutes + current_end - current_start
+          current_start <- starts[interval_index]
+          current_end <- ends[interval_index]
+        }
+      }
+    }
+
+    (total_minutes + current_end - current_start) / 60
+  }, numeric(1))
+}
+
+normalise_time_key <- function(x) {
+  x <- sub("(Start|End) Time$", "", x)
+  gsub("[^A-Za-z0-9]", "", x)
+}
+
+schedule_summary <- function(data, prefix) {
+  all_names <- names(data)
+  start_columns <- all_names[
+    grepl(paste0("^", prefix), all_names) & grepl("Start Time$", all_names)
+  ]
+  end_columns <- all_names[
+    grepl(paste0("^", prefix), all_names) & grepl("End Time$", all_names)
+  ]
+
+  end_lookup <- setNames(end_columns, normalise_time_key(end_columns))
+  paired_end_columns <- unname(end_lookup[normalise_time_key(start_columns)])
+  valid_pairs <- !is.na(paired_end_columns)
+  start_columns <- start_columns[valid_pairs]
+  paired_end_columns <- paired_end_columns[valid_pairs]
+
+  weekdays <- c(
+    "Monday", "Tuesday", "Wednesday", "Thursday",
+    "Friday", "Saturday", "Sunday"
+  )
+
+  daily_hours <- lapply(weekdays, function(day) {
+    day_pairs <- grepl(day, start_columns)
+    if (!any(day_pairs)) {
+      return(rep(NA_real_, nrow(data)))
+    }
+
+    union_daily_hours(
+      data,
+      start_columns[day_pairs],
+      paired_end_columns[day_pairs]
+    )
+  })
+
+  daily_matrix <- as.data.frame(daily_hours)
+  names(daily_matrix) <- weekdays
+  open_days <- rowSums(!is.na(daily_matrix))
+  weekly_hours <- rowSums(daily_matrix, na.rm = TRUE)
+  weekly_hours[open_days == 0] <- NA_real_
+
+  tibble(open_days = open_days, weekly_hours = weekly_hours)
+}
+
+row_max_or_na <- function(...) {
+  values <- cbind(...)
+  apply(values, 1, function(x) {
+    if (all(is.na(x))) NA_real_ else max(x, na.rm = TRUE)
+  })
+}
+
+annual_schedule <- schedule_summary(services_raw, "Annual") %>%
+  rename(
+    annual_open_days = open_days,
+    annual_weekly_hours = weekly_hours
+  )
+
+school_term_schedule <- schedule_summary(
+  services_raw,
+  "School Terms Only"
+) %>%
+  rename(
+    school_term_open_days = open_days,
+    school_term_weekly_hours = weekly_hours
+  )
+
+holiday_schedule <- schedule_summary(services_raw, "Holiday Care") %>%
+  rename(
+    holiday_open_days = open_days,
+    holiday_weekly_hours = weekly_hours
+  )
+
+services_base <- services_raw %>%
+  transmute(
+    service_id = ServiceApprovalNumber,
+    provider_id = `Provider Approval Number`,
+    service_name = ServiceName,
+    service_type = ServiceType,
+    state = State,
+    postcode = as.character(Postcode),
+    number_approved_places = suppressWarnings(as.numeric(NumberOfApprovedPlaces)),
+    service_approval_date = parse_dmy_date(ServiceApprovalGrantedDate),
+    service_has_conditions = !is.na(`Conditions on Approval`),
+    long_day_care = `Long Day Care`,
+    preschool_part_school = `Preschool/Kindergarten - Part of a School`,
+    preschool_standalone = `Preschool/Kindergarten - Stand alone`,
+    oshc_after_school = `Outside school Hours Care - After School`,
+    oshc_before_school = `Outside school Hours Care - Before School`,
+    oshc_vacation_care = `Outside school Hours Care - Vacation Care`,
+    other_service = Other,
+    temporarily_closed = `Temporarily Closed`,
+    overall_rating_original = OverallRating,
+    rating_tier = case_when(
+      OverallRating %in% c(
+        "Significant Improvement Required",
+        "Working Towards NQS"
+      ) ~ "Below NQS",
+      OverallRating == "Meeting NQS" ~ "Meeting NQS",
+      OverallRating %in% c("Exceeding NQS", "Excellent") ~ "Above NQS",
+      TRUE ~ NA_character_
+    )
+  ) %>%
+  bind_cols(annual_schedule, school_term_schedule, holiday_schedule) %>%
+  mutate(
+    service_age_years = round(
+      as.numeric(snapshot_date - service_approval_date) / 365.25,
+      2
+    ),
+    weekly_open_days = row_max_or_na(
+      annual_open_days,
+      school_term_open_days,
+      holiday_open_days
+    ),
+    max_weekly_hours = row_max_or_na(
+      annual_weekly_hours,
+      school_term_weekly_hours,
+      holiday_weekly_hours
+    ),
+    schedule_count = rowSums(
+      cbind(
+        !is.na(annual_weekly_hours),
+        !is.na(school_term_weekly_hours),
+        !is.na(holiday_weekly_hours)
+      )
+    ),
+    operating_pattern = case_when(
+      schedule_count == 0 ~ "No schedule recorded",
+      schedule_count > 1 ~ "Multiple schedules",
+      !is.na(annual_weekly_hours) ~ "Annual",
+      !is.na(school_term_weekly_hours) ~ "School terms",
+      !is.na(holiday_weekly_hours) ~ "Holiday care",
+      TRUE ~ NA_character_
+    ),
+    rating_tier = factor(
+      rating_tier,
+      levels = c("Below NQS", "Meeting NQS", "Above NQS")
+    )
+  ) %>%
+  select(-schedule_count)
+
+provider_features <- providers_raw %>%
+  transmute(
+    provider_id = `Provider Approval Number`,
+    provider_legal_name = `Legal Name`,
+    provider_trading_name = `Trading Name`,
+    provider_state = State,
+    provider_postcode = as.character(Postcode),
+    provider_approval_date = parse_dmy_date(`Date Approval Granted`),
+    provider_has_trading_name = !is.na(`Trading Name`),
+    provider_has_conditions = !is.na(Conditions)
+  )
+
+provider_scale <- services_base %>%
+  count(provider_id, name = "provider_service_count")
+
+unmatched_services <- services_base %>%
+  anti_join(provider_features, by = "provider_id")
+
+integrated_data <- services_base %>%
+  left_join(provider_features, by = "provider_id") %>%
+  left_join(provider_scale, by = "provider_id") %>%
+  mutate(
+    provider_age_years = round(
+      as.numeric(snapshot_date - provider_approval_date) / 365.25,
+      2
+    ),
+    provider_state_matches_service = case_when(
+      is.na(state) | is.na(provider_state) ~ NA,
+      state == provider_state ~ "Yes",
+      TRUE ~ "No"
+    )
+  )
+
+analysis_data <- integrated_data %>%
+  filter(!is.na(rating_tier)) %>%
+  select(
+    service_id,
+    provider_id,
+    rating_tier,
+    service_type,
+    state,
+    number_approved_places,
+    service_age_years,
+    long_day_care,
+    preschool_part_school,
+    preschool_standalone,
+    oshc_after_school,
+    oshc_before_school,
+    oshc_vacation_care,
+    other_service,
+    service_has_conditions,
+    temporarily_closed,
+    annual_open_days,
+    annual_weekly_hours,
+    school_term_open_days,
+    school_term_weekly_hours,
+    holiday_open_days,
+    holiday_weekly_hours,
+    weekly_open_days,
+    max_weekly_hours,
+    operating_pattern,
+    provider_state,
+    provider_age_years,
+    provider_service_count,
+    provider_has_trading_name,
+    provider_has_conditions,
+    provider_state_matches_service
+  )
+
+stopifnot(n_distinct(services_base$service_id) == nrow(services_base))
+stopifnot(n_distinct(provider_features$provider_id) == nrow(provider_features))
+
+linkage_summary <- tibble(
+  measure = c(
+    "Service rows",
+    "Unique service IDs",
+    "Provider rows",
+    "Unique provider IDs in provider register",
+    "Unique provider IDs represented by services",
+    "Service rows unmatched to provider register",
+    "Labelled analysis rows"
+  ),
+  value = c(
+    nrow(services_raw),
+    n_distinct(services_base$service_id),
+    nrow(providers_raw),
+    n_distinct(provider_features$provider_id),
+    n_distinct(services_base$provider_id),
+    nrow(unmatched_services),
+    nrow(analysis_data)
+  )
+)
+
+variable_dictionary <- tibble::tribble(
+  ~variable, ~role, ~type, ~description,
+  "service_id", "Identifier", "Character", "Unique service approval number; excluded from modelling.",
+  "provider_id", "Identifier", "Character", "Provider approval number used for linkage; excluded from modelling.",
+  "rating_tier", "Outcome", "Categorical", "Below NQS, Meeting NQS, or Above NQS.",
+  "service_type", "Predictor", "Categorical", "Centre-Based Care or Family Day Care.",
+  "state", "Predictor", "Categorical", "State or territory of the service.",
+  "number_approved_places", "Predictor", "Numeric", "Maximum approved service places.",
+  "service_age_years", "Predictor", "Numeric", "Years between service approval and the snapshot date.",
+  "long_day_care", "Predictor", "Categorical", "Whether long day care is offered.",
+  "preschool_part_school", "Predictor", "Categorical", "Whether school-based preschool or kindergarten is offered.",
+  "preschool_standalone", "Predictor", "Categorical", "Whether standalone preschool or kindergarten is offered.",
+  "oshc_after_school", "Predictor", "Categorical", "Whether after-school care is offered.",
+  "oshc_before_school", "Predictor", "Categorical", "Whether before-school care is offered.",
+  "oshc_vacation_care", "Predictor", "Categorical", "Whether vacation care is offered.",
+  "other_service", "Predictor", "Categorical", "Whether another service type is recorded.",
+  "service_has_conditions", "Predictor", "Logical", "Whether conditions on service approval are recorded.",
+  "temporarily_closed", "Predictor", "Categorical", "Whether the service is temporarily closed.",
+  "annual_open_days", "Predictor", "Numeric", "Number of days with annual operating hours.",
+  "annual_weekly_hours", "Predictor", "Numeric", "Total recorded annual operating hours in a standard week.",
+  "school_term_open_days", "Predictor", "Numeric", "Number of operating days during school terms.",
+  "school_term_weekly_hours", "Predictor", "Numeric", "Total recorded operating hours during a school-term week.",
+  "holiday_open_days", "Predictor", "Numeric", "Number of operating days during holiday care.",
+  "holiday_weekly_hours", "Predictor", "Numeric", "Total recorded operating hours during a holiday-care week.",
+  "weekly_open_days", "Predictor", "Numeric", "Maximum recorded open days across schedule types.",
+  "max_weekly_hours", "Predictor", "Numeric", "Maximum recorded weekly hours across schedule types.",
+  "operating_pattern", "Predictor", "Categorical", "Annual, school-term, holiday, multiple, or unrecorded schedule.",
+  "provider_state", "Predictor", "Categorical", "State or territory recorded for the provider.",
+  "provider_age_years", "Predictor", "Numeric", "Years between provider approval and the snapshot date.",
+  "provider_service_count", "Predictor", "Numeric", "Number of services in the register linked to the provider.",
+  "provider_has_trading_name", "Predictor", "Logical", "Whether a trading name is recorded.",
+  "provider_has_conditions", "Predictor", "Logical", "Whether conditions on provider approval are recorded.",
+  "provider_state_matches_service", "Predictor", "Categorical", "Whether provider and service states are the same."
+)
+
+dir.create("data/processed", recursive = TRUE, showWarnings = FALSE)
+write_csv(analysis_data, "data/processed/acecqa_analysis.csv", na = "")
+write_csv(linkage_summary, "data/processed/acecqa_linkage_summary.csv")
+write_csv(
+  variable_dictionary,
+  "data/processed/acecqa_variable_dictionary.csv"
+)
+```
+
+Each observation represents one approved Australian education and care service, uniquely identified by its `ServiceApprovalNumber`. The services register contains `r format(nrow(services_raw), big.mark = ",")` unique services.
+
+The outcome is a three-level categorical variable derived from `OverallRating`. Significant Improvement Required and Working Towards NQS are grouped as Below NQS; Meeting NQS remains unchanged; and Exceeding NQS and Excellent are grouped as Above NQS. This grouping follows the ordering of the official NQS rating levels and avoids retaining two extremely small classes (https://www.acecqa.gov.au/assessment/assessment-and-rating-process).
+
+```{r data quality}
+source_dimensions <- tibble(
+  dataset = c(
+    "Education services register",
+    "Approved providers register",
+    "Integrated labelled analysis data"
+  ),
+  rows = c(nrow(services_raw), nrow(providers_raw), nrow(analysis_data)),
+  columns = c(ncol(services_raw), ncol(providers_raw), ncol(analysis_data))
+)
+
+rating_distribution <- analysis_data %>%
+  count(rating_tier, name = "count") %>%
+  mutate(percent = round(100 * count / sum(count), 1))
+
+missingness_selected <- analysis_data %>%
+  summarise(across(everything(), ~ sum(is.na(.x)))) %>%
+  pivot_longer(
+    everything(),
+    names_to = "variable",
+    values_to = "missing_count"
+  ) %>%
+  mutate(
+    missing_percent = round(100 * missing_count / nrow(analysis_data), 2)
+  ) %>%
+  arrange(desc(missing_percent), variable)
+
+raw_quality_summary <- tibble(
+  measure = c(
+    "Missing OverallRating values",
+    "Missing NumberOfApprovedPlaces values",
+    "Missing provider trading names",
+    "Missing provider conditions",
+    "Duplicate service IDs",
+    "Duplicate provider IDs",
+    "Maximum services linked to one provider"
+  ),
+  value = c(
+    sum(is.na(services_raw$OverallRating)),
+    sum(is.na(services_raw$NumberOfApprovedPlaces)),
+    sum(is.na(providers_raw$`Trading Name`)),
+    sum(is.na(providers_raw$Conditions)),
+    sum(duplicated(services_raw$ServiceApprovalNumber)),
+    sum(duplicated(providers_raw$`Provider Approval Number`)),
+    max(provider_scale$provider_service_count)
+  )
+)
+
+criteria_evidence <- tibble::tribble(
+  ~criterion, ~evidence,
+  "Large", paste0(format(nrow(services_raw), big.mark = ","), " service observations (>10,000)."),
+  "Messy", paste0(
+    sum(is.na(services_raw$OverallRating)),
+    " missing outcomes, ",
+    sum(is.na(services_raw$NumberOfApprovedPlaces)),
+    " missing approved-place values, and structurally missing schedule fields."
+  ),
+  "Integrated", paste0(
+    "Services and providers linked by Provider Approval Number; ",
+    nrow(unmatched_services),
+    " unmatched service rows."
+  ),
+  "Multi-class", "Five recorded NQS levels, consolidated into three ordered modelling tiers."
+)
+
+rating_tier_plot <- ggplot(
+  rating_distribution,
+  aes(
+    x = factor(
+      rating_tier,
+      levels = c("Below NQS", "Meeting NQS", "Above NQS")
+    ),
+    y = count,
+    fill = rating_tier
+  )
+) +
+  geom_col(width = 0.68, show.legend = FALSE) +
+  geom_text(
+    aes(label = paste0(format(count, big.mark = ","), " (", percent, "%)")),
+    vjust = -0.35,
+    size = 3.4
+  ) +
+  scale_fill_manual(values = c(
+    "Below NQS" = "#C44E52",
+    "Meeting NQS" = "#4C78A8",
+    "Above NQS" = "#59A14F"
+  )) +
+  scale_y_continuous(
+    expand = expansion(mult = c(0, 0.12)),
+    labels = function(x) format(x, big.mark = ",", scientific = FALSE)
+  ) +
+  labs(
+    title = "Recorded NQS rating tiers are imbalanced",
+    x = NULL,
+    y = "Number of services"
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(panel.grid.major.x = element_blank())
+
+missingness_plot_data <- missingness_selected %>%
+  filter(missing_percent > 0) %>%
+  slice_max(missing_percent, n = 15, with_ties = FALSE) %>%
+  arrange(missing_percent)
+
+missingness_plot <- ggplot(
+  missingness_plot_data,
+  aes(x = missing_percent, y = reorder(variable, missing_percent))
+) +
+  geom_col(fill = "#4C78A8", width = 0.72) +
+  geom_text(
+    aes(label = paste0(missing_percent, "%")),
+    hjust = -0.15,
+    size = 3.1
+  ) +
+  scale_x_continuous(
+    limits = c(0, max(missingness_plot_data$missing_percent) * 1.13),
+    expand = expansion(mult = c(0, 0))
+  ) +
+  labs(
+    title = "Missingness in the labelled analysis data",
+    x = "Missing observations (%)",
+    y = NULL
+  ) +
+  theme_minimal(base_size = 10) +
+  theme(panel.grid.major.y = element_blank())
+
+dir.create("outputs", showWarnings = FALSE)
+dir.create("figures", showWarnings = FALSE)
+
+write_csv(source_dimensions, "outputs/source_dimensions.csv")
+write_csv(rating_distribution, "outputs/rating_distribution.csv")
+write_csv(missingness_selected, "outputs/missingness_selected.csv")
+write_csv(raw_quality_summary, "outputs/raw_quality_summary.csv")
+write_csv(criteria_evidence, "outputs/criteria_evidence.csv")
+
+ggsave(
+  "figures/rating_tier_distribution.png",
+  rating_tier_plot,
+  width = 7.2,
+  height = 4.2,
+  dpi = 220
+)
+ggsave(
+  "figures/missingness_selected.png",
+  missingness_plot,
+  width = 7.2,
+  height = 5.1,
+  dpi = 220
+)
+```
+
+Among services with a recorded rating, `r rating_distribution$count[rating_distribution$rating_tier == "Below NQS"]` are Below NQS, `r format(rating_distribution$count[rating_distribution$rating_tier == "Meeting NQS"], big.mark = ",")` are Meeting NQS, and `r format(rating_distribution$count[rating_distribution$rating_tier == "Above NQS"], big.mark = ",")` are Above NQS. A further `r format(sum(is.na(services_raw$OverallRating)), big.mark = ",")` services have no recorded rating and are excluded from the labelled classification data.
+
+## Predictors, Stakeholders and Significance
+
+Candidate predictors include service type, number of approved places, operating schedules, state, service age, provider age, and provider scale. Current and previous rating information will be excluded from the predictors to prevent target leakage.
+
+The main stakeholders are education and care regulatory authorities, service providers, and policy researchers. Regulatory authorities assess and rate services and promote continuous quality improvement under the NQF (ACECQA, n.d.). The analysis may help to analysis service profiles related to recorded NQS rating tiers and hence inform regulatory and policy decisions. Service providers may use the analysis to compare their service against similar services and identify potential areas for improvement. Policy researchers may use the analysis to explore the relationship between service characteristics and quality outcomes, which may inform future research and policy development.
+
+# Consider & Gather Data
+
+## Sources, Integration and Variables
+
+Two daily updated ACECQA national registers were downloaded on 18 September 2026 from the [official register page](https://www.acecqa.gov.au/resources/national-registers). The services file has `r format(nrow(services_raw), big.mark = ",")` rows and `r ncol(services_raw)` columns covering service characteristics, schedules and ratings; the providers file has `r format(nrow(providers_raw), big.mark = ",")` rows and `r ncol(providers_raw)` columns covering provider identity, location, approval date and conditions.
+
+Using the services register as the primary table, we made a validated many-to-one join on `Provider Approval Number`. Service and provider identifiers were unique at their expected levels, and all service rows matched a provider. We derived service/provider age, provider service count, and schedule-based open-day and weekly-hour measures. After excluding services without an outcome, the analysis file contains `r format(nrow(analysis_data), big.mark = ",")` services and `r ncol(analysis_data)` variables. Identifiers are retained only for audit and linkage; all current and previous rating fields are excluded from predictors to prevent target leakage.
+
+## Data Quality and Assignment Criteria
+
+The data satisfy four criteria:
+
+1. **Large:** `r format(nrow(services_raw), big.mark = ",")` service observations exceed the 10,000-row threshold. A scripted preparation step avoids repeatedly performing the join and schedule conversions.
+2. **Messy:** The raw services file has `r format(sum(is.na(services_raw$OverallRating)), big.mark = ",")` missing outcomes and `r sum(is.na(services_raw$NumberOfApprovedPlaces))` missing capacity values. Schedule missingness is substantial but often structural because services use different schedule types; genuine numeric missingness will be imputed within resampling. Provider scale is also strongly right-skewed (maximum `r max(provider_scale$provider_service_count)` services).
+3. **Integrated:** The two official registers are linked by provider approval number with no duplicate join keys at the relevant level and no unmatched service rows. The join adds provider age and scale to each service.
+4. **Multi-class:** Five recorded NQS levels are consolidated into three ordered tiers. Of the labelled services, `r format(rating_distribution$count[rating_distribution$rating_tier == "Below NQS"], big.mark = ",")` (`r rating_distribution$percent[rating_distribution$rating_tier == "Below NQS"]`%) are Below NQS, `r format(rating_distribution$count[rating_distribution$rating_tier == "Meeting NQS"], big.mark = ",")` (`r rating_distribution$percent[rating_distribution$rating_tier == "Meeting NQS"]`%) are Meeting NQS, and `r format(rating_distribution$count[rating_distribution$rating_tier == "Above NQS"], big.mark = ",")` (`r rating_distribution$percent[rating_distribution$rating_tier == "Above NQS"]`%) are Above NQS. This imbalance requires stratified splitting and class-sensitive metrics.
+
+```{r ab-missingness, out.width='62%', fig.width=7.2, fig.height=4.1}
+missingness_plot
+```
+
+## Final Analysis Variables
+
+The processed labelled dataset contains `r nrow(analysis_data)` services and `r ncol(analysis_data)` variables, including two audit identifiers and the outcome. The remaining fields cover service type and scale, location, service offerings, operating patterns, provider age, and provider scale. A complete variable dictionary is generated as `data/processed/acecqa_variable_dictionary.csv`.
+
+# Exploratory Data Analysis (EDA)
+
+Categorical, numerical, and operating-pattern EDA will be added by the assigned members using the common processed dataset generated above.
+
+## Categorical Predictors
+
+```{r eda categorical data}
+# ---Select Categorical Variable---
+categorical_data <- analysis_data |>
+  select(all_of(
+    variable_dictionary |> 
+      filter(role == "Outcome"|(role == "Predictor" & type %in% c("Categorical", "Logical"))) |>
+      pull(variable)
+  ))
+categorical_vars <- setdiff(names(categorical_data), "rating_tier")
+
+categorical_data_clean <- categorical_data |>
+  mutate(across(
+    all_of(categorical_vars),
+    ~ ifelse(is.na(.x), "Missing", as.character(.x))
+  )) 
+categorical_data_long <- categorical_data_clean |>
+  pivot_longer(
+    all_of(categorical_vars),
+    names_to  = "variable",
+    values_to = "level"
+  )
+
+# ---Variable Profile---
+categorical_profile <- categorical_data_long |>
+  count(variable, level, name = "count") |>
+  group_by(variable) |>
+  summarise(
+    n_levels = length(level),
+    missing_count = sum(count[level=="Missing"]),
+    top_level = level[which.max(count)],
+    top_percent = round(100*max(count)/sum(count), 1),
+    smallest_level = level[which.min(count)],
+    smallest_count = min(count),
+    rare_levels = sum(count/sum(count) < 0.01),
+    .groups = "drop"
+  ) |>
+  mutate(
+    missing_percent = round(100*missing_count/nrow(categorical_data_clean), 2),
+    flag = case_when(
+      n_levels == 1 ~ "Constant - drop",
+      top_percent >= 95 ~ "Near-constant (>=95% one level)",
+      rare_levels > 0 ~ "Has rare levels (<1%) - consider collapsing",
+      missing_percent > 20 ~ "High missingness",
+      TRUE ~ "OK"
+    )
+  ) |>
+  arrange(desc(top_percent))
+
+# ---Univariate Frequencies---
+categorical_freq_table <- categorical_data_long |>
+  count(variable, level, name = "count") |>
+  group_by(variable) |>
+  mutate(percent = round(100*count/sum(count))) |>
+  arrange(variable, desc(count), .by_group = TRUE) |>
+  ungroup()
+
+categorical_univariate_plot <- ggplot(
+  categorical_freq_table, aes(x=percent, y=level)
+) + 
+  geom_col(fill = "#4C78A8", width = 0.6) +
+  geom_text(aes(label = paste0(percent, "%")), hjust = -0.15, size = 2) +
+  facet_wrap(~variable, scales = "free_y", ncol = 4)+
+  scale_x_continuous(
+    limits = c(0,115),
+    breaks = c(0,50,100),
+    expand = expansion(mult = c(0,0))
+  ) +
+  labs(
+    title = "Level frequencies of categorical variables",
+    x = "Share of services (%)",
+    y = NULL
+  ) +
+  theme_minimal(base_size = 10) +
+  theme(panel.grid.major.y = element_blank(),
+        axis.text.y = element_text(size=5))
+
+# ---Predictors vs. Outcome---
+# Row Percentages
+categorical_outcome_crosstab <- categorical_data_long |>
+  count(variable, level, rating_tier, name = "count") |>
+  group_by(variable, level) |>
+  mutate(
+    level_total = sum(count),
+    row_percent = round(100*count/level_total, 1)
+  ) |>
+  ungroup()
+categorical_overall_rating <- categorical_data_clean |>
+  count(rating_tier, name = "count") |>
+  mutate(overall_percent = round(100*count/sum(count), 1))
+
+# Cramer's V to check for effect size
+categorical_cramers_v <- function(x, y){
+  tab <- table(x, y)
+  tab <- tab[rowSums(tab) > 0, colSums(tab) > 0, drop = FALSE]
+  r <- nrow(tab)
+  k <- ncol(tab)
+  n <- sum(tab)
+  if (r < 2 || k < 2) {return(NA_real_)}
+  chi2 <- as.numeric(suppressWarnings(chisq.test(tab, correct = FALSE)$statistic))
+  phi2_corr <- max(0, chi2/n - (r-1)*(k-1)/(n-1))
+  r_corr <- r - (r-1)^2/(n-1)
+  k_corr <- k - (k-1)^2/(n-1)
+  sqrt(phi2_corr/min(r_corr-1, k_corr-1))
+}
+categorical_association_with_outcome <- lapply(categorical_vars, function(v){
+  tab <- table(categorical_data_clean[[v]], categorical_data_clean[["rating_tier"]])
+  if (nrow(tab) < 2) {return(tibble(variable = v, n_levels = nrow(tab)))}
+  test <- suppressWarnings(chisq.test(tab))
+  tibble(
+    variable = v,
+    n_levels = nrow(tab),
+    chi_square = unname(test$statistic),
+    df = unname(test$parameter),
+    p.value = test$p.value,
+    cramers_v = categorical_cramers_v(
+      categorical_data_clean[[v]],
+      categorical_data_clean[["rating_tier"]]
+    ),
+    pct_cells_expected_lt5 = round(100*mean(test$expected < 5), 1)
+  )
+}) |>
+  bind_rows() |>
+  mutate(
+    p_adjusted = p.adjust(p.value, method = "holm"),
+    strength = cut(
+      cramers_v,
+      breaks = c(-Inf, 0.1, 0.2, 0.4, Inf),
+      labels = c("Neglibile", "Weak", "Moderate", "Strong")
+    ),
+    reliability_note = if_else(
+      pct_cells_expected_lt5 > 20,
+      "Sparse cells: collapse rare levels before trusting chi-square",
+      ""
+    )
+  ) |>
+  arrange(desc(cramers_v))
+
+# Standardized Pearson Residuals
+categorical_std_residuals <- lapply(categorical_vars, function(v){
+  tab <- table(
+    level = categorical_data_clean[[v]],
+    rating_tier = categorical_data_clean[["rating_tier"]]
+  )
+  if (nrow(tab) < 2) {return(NULL)}
+  residuals <- suppressWarnings(chisq.test(tab)$stdres)
+  as_tibble(as.data.frame(as.table(residuals), stringAsFactors = FALSE)) |>
+    rename(std_residual = Freq) |>
+    mutate(variable = v, std_residual = round(std_residual, 2))
+}) |>
+  bind_rows() |>
+  select(variable, level, rating_tier, std_residual)
+
+# Stacked bars for each predictor, ordered by Cramer's V
+categorical_facet_labels <- categorical_association_with_outcome |>
+  transmute(variable, facet_label = paste0(variable, " (V = ", round(cramers_v, 2), ")"))
+categorical_crosstab_plot_data <- categorical_outcome_crosstab |>
+  left_join(categorical_facet_labels, by = "variable") |>
+  mutate(
+    facet_label = factor(facet_label, levels = categorical_facet_labels$facet_label),
+    rating_tier = factor(
+      rating_tier,
+      levels = c("Below NQS", "Meeting NQS", "Above NQS")
+    )
+  )
+categorical_outcome_plot <- ggplot(
+  categorical_crosstab_plot_data,
+  aes(x = count, y = level, fill = rating_tier)
+) +
+  geom_col(position = "fill", width = 0.6) +
+  facet_wrap(~facet_label, scales = "free_y", ncol = 4) +
+  scale_fill_manual(
+    values = c(
+      "Below NQS" = "#C44E52",
+      "Meeting NQS" = "#4C78A8",
+      "Above NQS" = "#59A14F"
+    )
+  ) +
+  scale_x_continuous(labels = scales::percent_format()) +
+  labs(
+    title = "Rating Tier Mix within Each Level of Each Categorical Predictor",
+    subtitle = "Panels ordered by strength of association (Cramer's V)",
+    x = "Share of Services",
+    y = NULL,
+    fill = NULL
+  ) +
+  theme_minimal(base_size = 10) +
+  theme(axis.text.y = element_text(size=6),
+    panel.grid.major.y = element_blank(),
+    legend.position = "top"
+  )
+categorical_top_residual_vars <- categorical_association_with_outcome |>
+  filter(!is.na(cramers_v)) |>
+  slice_head(n = 7) |>
+  pull(variable)
+categorical_residual_plot <- categorical_std_residuals |>
+  filter(variable %in% categorical_top_residual_vars) |>
+  mutate(
+    rating_tier = factor(
+      rating_tier,
+      levels = c("Below NQS", "Meeting NQS", "Above NQS")
+    )
+  ) |>
+  ggplot(aes(x = rating_tier, y = level, fill = std_residual)) +
+  geom_tile(colour = "white") +
+  geom_text(aes(label = round(std_residual, 1)), size = 2.8) +
+  facet_wrap(~variable, scales = "free_y", ncol = 2) +
+  scale_fill_gradient2(
+    low = "#4C78A8",
+    mid = "white",
+    high = "#C44E52",
+    midpoint = 0,
+    limits = c(-10,10),
+    oob = scales::squish
+  ) +
+  labs(
+    title = "Where the Association Comes From",
+    subtitle = "Standardised residuals: Red = More services than expected, Blue = Fewer",
+    x = NULL,
+    y = NULL,
+    fill = "Std. Residual"
+  ) +
+  theme_minimal(base_size = 10) +
+  theme(panel.grid = element_blank())
+
+# ---Predictor vs. Predictor - Redundancy Check---
+categorical_pairwise_association <- expand.grid(
+  var1 = categorical_vars,
+  var2 = categorical_vars,
+  stringsAsFactors = FALSE
+) |>
+  as_tibble() |>
+  mutate(
+    cramers_v = mapply(
+      function(a,b) {
+        if (a==b) 1 else categorical_cramers_v(categorical_data_clean[[a]], categorical_data_clean[[b]])
+      },
+      var1,
+      var2
+    )
+  )
+
+categorical_redundant_pairs <- categorical_pairwise_association |>
+  filter(var1 < var2, !is.na(cramers_v), cramers_v >= 0.5) |>
+  arrange(desc(cramers_v))
+
+categorical_pairwise_plot <- ggplot(
+  categorical_pairwise_association,
+  aes(x = var1, y = var2, fill=cramers_v)
+) +
+  geom_tile(colour = "white") +
+  geom_text(aes(label = round(cramers_v, 2)), size = 2) +
+  scale_fill_gradient(
+    low = "white",
+    high = "#4C78A8",
+    limits = c(0, 1),
+    na.value = "grey90"
+  ) +
+  labs(
+    title = "Association Between Categorical Predictors",
+    subtitle = "Bias-corrected Cramer's V; High values = Redundant features",
+    x = NULL,
+    y = NULL,
+    fill = "V"
+  ) +
+  theme_minimal(base_size = 6) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size=5), 
+        axis.text.y = element_text(size=5),
+        panel.grid = element_blank())
+
+# ---Saving Outputs---
+dir.create("outputs/categorical", showWarnings = FALSE)
+write_csv(categorical_profile, "outputs/categorical/profile.csv")
+write_csv(categorical_freq_table, "outputs/categorical/frequencies.csv")
+write_csv(categorical_outcome_crosstab, "outputs/categorical/categorical_vs_rating_crosstab.csv")
+write_csv(categorical_association_with_outcome, "outputs/categorical/standardised_residuals.csv")
+write_csv(categorical_pairwise_association, "outputs/categorical/pairwise_cramers_v.csv")
+write_csv(categorical_redundant_pairs, "outputs/categorical/redundant_pairs.csv")
+
+ggsave("figures/categorical_univariate.png", categorical_univariate_plot,
+       width = 10, height = 9, dpi = 220)
+ggsave("figures/categorical_vs_rating_tier.png", categorical_outcome_plot,
+       width = 16, height = 10, dpi = 220)
+ggsave("figures/categorical_residuals.png", categorical_residual_plot,
+       width = 16, height = 9, dpi = 220)
+ggsave("figures/categorical_pairwise_cramers_v.png", categorical_pairwise_plot,
+       width = 8.5, height = 7.5, dpi = 220)
+```
+
+**Variable Balance**
+
+Examining the distributions of categorical variables of the services indicate some imbalance in the variables:
+
+1. **Highly Imbalanced:** `temporarily_closed` (100% No), `service_type` (98% Centre-Based Care), `other_service` (96% No), `provider_has_conditions` (96% False), `preschool_part_school` (95% No). The variables have little to no variation and rare levels will likely produce unstable estimates.
+2. **Imbalanced:** `provider_state` and `state` show that most of services are located in NSW, VIC, QLD. Trained model might under-perform for new services with locations outside of NSW, VIC, and QLD.
+
+**Rating Tier vs. Categorical Predictor**
+
+Computing Cramer's V for each predictor to the target variable, the following variables showed strongest association: `preschool_standalone` (V=0.28), `oschc_after_school` (V=0.22), `oshc_before_school` (V=0.21), `oshc_vacation_care` (V=0.19), `operating_pattern` (V=0.16), `state` (V=0.14), and `preschool_part_school` (V=0.14). 
+Plotting stacked bar chart for each predictor and `rating_tier` pair showed a potential association between being a standalone preschools (`preschool_standalone`) and/or not offering OSHC (`oshc_after_school`, `oshc_before_school`, `oshc_vacation_care`) with a higher percentage of "Above NQS" in `rating_tier`.
+
+Additionally, the some categorical variables have very small Cramer's V value, indicating them as weak candidates for usefulness during training. Of these, `temporarily_closed` low values might be explained by its imbalanced value distribution of approximately 100% No.
+
+```{r cat v. rating plot, fig.height=5, fig.width=12}
+categorical_outcome_plot
+```
+
+**Associations Between Predictors**
+
+Multi-collinearity between categorical predictors were checked to further identify redundant features. It was found that:
+
+<!--```{r pairwise plot, fig.height=4, fig.width=4}
+categorical_pairwise_plot
+```-->
+
+- The categorical variables indicating if the service offers OSHC are highly related ($V\in[0.73,0.93]$). These may be better merged into a single feature for model training. Additionally, the variable `operating_pattern` has strong associations with `long_day_care` (V=0.8) and the OSHC cluster (V=0.65-0.73) indicates it partly encodes information from those variables.
+
+- High associations between the variable `state` with `provider_state`, `service_has_conditions` and between `provider_state` and `provider_state_matches_service` shows that these variables are somewhat correlated.
+
+Overall, certain categorical variables might be redundant. This can be fixed by including only one representative per cluster, regularization, or using tree-based models to avoid inflating variance.
+
+## Numerical predictors
+
+```{r eda numerical data}
+d_data <- read_csv('data/processed/acecqa_analysis.csv', show_col_types=FALSE)
+d_tiers <- c('Below NQS','Meeting NQS','Above NQS')
+d_vars <- c('number_approved_places','service_age_years','provider_age_years','provider_service_count')
+d_labels <- c('Approved places [log10(1+x)]','Service approval age [years]',
+              'Provider approval age [years]','Provider service count [log10(1+x)]')
+stopifnot(!anyDuplicated(d_data$service_id), !anyNA(d_data$rating_tier),
+          all(d_data$rating_tier %in% d_tiers), all(d_vars %in% names(d_data)))
+d_data$rating_tier <- factor(d_data$rating_tier, levels=d_tiers)
+d_long <- d_data |> select(service_id,provider_id,service_type,rating_tier,all_of(d_vars)) |>
+  pivot_longer(all_of(d_vars), names_to='variable',values_to='value')
+d_summary <- function(x) {
+  v <- x[is.finite(x)]
+  if (!length(v)) return(tibble(n=length(x),observed=0L,missing=sum(is.na(x)),
+    missing_percent=100*mean(is.na(x)),min=NA_real_,q1=NA_real_,median=NA_real_,
+    q3=NA_real_,max=NA_real_,mean=NA_real_,sd=NA_real_,iqr_flags=0L,negative=0L,zero=0L))
+  q <- quantile(v,c(.25,.5,.75),names=FALSE)
+  tibble(n=length(x),observed=length(v),missing=sum(is.na(x)),
+    missing_percent=100*mean(is.na(x)),min=min(v),q1=q[1],median=q[2],q3=q[3],
+    max=max(v),mean=mean(v),sd=sd(v),
+    iqr_flags=sum(v<q[1]-1.5*(q[3]-q[1]) | v>q[3]+1.5*(q[3]-q[1])),
+    negative=sum(v<0),zero=sum(v==0))
+}
+d_profile <- d_long |> group_by(variable) |> group_modify(~d_summary(.x$value)) |> ungroup()
+d_by_tier <- d_long |> group_by(variable,rating_tier) |> group_modify(~d_summary(.x$value)) |> ungroup()
+d_by_type <- d_long |> group_by(variable,service_type,rating_tier) |>
+  group_modify(~d_summary(.x$value)) |> ungroup()
+d_missing_type <- d_long |> group_by(variable,service_type) |> summarise(
+  n=n(),missing=sum(is.na(value)),missing_percent=100*mean(is.na(value)),.groups='drop')
+# Service-level correlations: provider attributes are repeated for each linked service.
+d_pairs <- combn(d_vars,2,simplify=FALSE)
+d_cor <- bind_rows(lapply(d_pairs,function(v) {
+  ok <- complete.cases(d_data[,v]); x <- d_data[[v[1]]][ok]; y <- d_data[[v[2]]][ok]
+  tibble(var1=v[1],var2=v[2],n_complete=sum(ok),spearman=cor(x,y,method='spearman'))
+}))
+# Provider-level sensitivity summary; one record per represented provider.
+d_providers <- d_data |> distinct(provider_id,provider_age_years,provider_service_count)
+stopifnot(!anyDuplicated(d_providers$provider_id))
+d_provider_profile <- d_providers |> pivot_longer(-provider_id,names_to='variable',values_to='value') |>
+  group_by(variable) |> group_modify(~d_summary(.x$value)) |> ungroup()
+# Fixed descriptive bins, not fitted cut points or mandatory modelling categories.
+d_scale_mix <- d_data |> mutate(scale_band=cut(provider_service_count,
+  breaks=c(0,1,5,20,100,Inf),labels=c('1','2-5','6-20','21-100','101+'))) |>
+  count(scale_band,rating_tier,.drop=FALSE) |> group_by(scale_band) |>
+  mutate(total=sum(n),percent=100*n/total) |> ungroup()
+d_extremes <- d_long |> filter(!is.na(value)) |> group_by(variable) |>
+  slice_max(value,n=5,with_ties=FALSE) |> ungroup()
+d_plot_data <- d_long |> mutate(panel=factor(variable,levels=d_vars,labels=d_labels),
+  plotted=if_else(variable %in% d_vars[c(1,4)],log10(1+pmax(value,0)),value))
+d_cols <- c('Below NQS'='#C44E52','Meeting NQS'='#4C78A8','Above NQS'='#59A14F')
+d_theme <- theme_minimal(base_size=11)+theme(legend.position='top',panel.grid.minor=element_blank(),
+  strip.text=element_text(face='bold'),plot.title=element_text(face='bold'))
+d_distribution_plot <- ggplot(filter(d_plot_data,!is.na(plotted)),aes(plotted))+
+  geom_histogram(bins=35,fill='#4C78A8',colour='white',linewidth=.2)+
+  facet_wrap(~panel,scales='free',ncol=2)+labs(title='Distributions of numerical predictors',
+  subtitle='Labelled services; missing values excluded separately for each variable',x=NULL,y='Services')+d_theme
+# Full range retained; transformed axes compress the tails without dropping services.
+d_rating_plot <- ggplot(filter(d_plot_data,!is.na(plotted)),aes(rating_tier,plotted,fill=rating_tier))+
+  geom_boxplot(width=.58,outlier.size=.45,outlier.alpha=.15)+
+  facet_wrap(~panel,scales='free_y',ncol=4)+scale_fill_manual(values=d_cols)+
+  labs(title='Numerical predictors by recorded NQS tier',
+  subtitle='Full range retained; count variables shown as log10(1+x)',x=NULL,y=NULL)+d_theme+
+  theme(legend.position='none', axis.text.y = element_text(size=7), axis.text.x = element_text(size=7))
+d_type_plot <- ggplot(filter(d_plot_data,!is.na(plotted)),aes(rating_tier,plotted,fill=rating_tier))+
+  geom_boxplot(width=.55,outlier.size=.3,outlier.alpha=.1)+
+  facet_wrap(vars(panel,service_type),scales='free_y',ncol=2)+scale_fill_manual(values=d_cols)+
+  labs(title='Sensitivity check within service type',x=NULL,y=NULL)+d_theme+theme(legend.position='none')
+d_cor_grid <- bind_rows(d_cor |> select(var1,var2,spearman),
+  d_cor |> select(var1=var2,var2=var1,spearman),tibble(var1=d_vars,var2=d_vars,spearman=1))
+stopifnot(nrow(distinct(d_cor_grid,var1,var2)) == 16L)
+d_short <- c('Places','Service age','Provider age','Provider scale')
+d_cor_grid <- d_cor_grid |> mutate(var1=factor(var1,levels=d_vars,labels=d_short),
+  var2=factor(var2,levels=rev(d_vars),labels=rev(d_short)))
+d_correlation_plot <- ggplot(d_cor_grid,aes(var1,var2,fill=spearman))+geom_tile(colour='white')+
+  geom_text(aes(label=sprintf('%.2f',spearman)),size=4)+
+  scale_fill_gradient2(low='#C44E52',mid='white',high='#4C78A8',limits=c(-1,1))+
+  coord_equal()+labs(title='Numerical predictor relationships',
+  subtitle='Spearman correlations; pairwise complete services',x=NULL,y=NULL,fill='rho')+d_theme
+
+dir.create('outputs/numerical',recursive=TRUE,showWarnings=FALSE)
+dir.create('figures',showWarnings=FALSE)
+for (nm in c('profile','by_tier','by_type','missing_type','cor','provider_profile','scale_mix','extremes'))
+  write_csv(get(paste0('d_',nm)),paste0('outputs/numerical/',nm,'.csv'),na='')
+ggsave('figures/numerical_distributions.png',d_distribution_plot,width=9,height=6,dpi=180)
+ggsave('figures/numerical_by_rating.png',d_rating_plot,width=9,height=6,dpi=180)
+ggsave('figures/numerical_by_service_type.png',d_type_plot,width=10,height=11,dpi=180)
+ggsave('figures/numerical_correlations.png',d_correlation_plot,width=7,height=5,dpi=180)
+#print(d_profile,width=Inf)
+#print(d_by_tier |> select(variable,rating_tier,observed,missing,median,q1,q3),n=20)
+#print(d_cor)
+#print(d_missing_type)
+#print(d_provider_profile,width=Inf)
+# Audit upstream definitions against raw registers (read all columns as text).
+d_raw_s <- read_csv('Education-services-au-export.csv',col_types=cols(.default=col_character()))
+d_raw_p <- read_csv('Approved-providers-au-export.csv',col_types=cols(.default=col_character()))
+d_raw_scale <- d_raw_s |> count(`Provider Approval Number`,name='expected_scale')
+d_check <- d_data |> left_join(d_raw_scale,by=c('provider_id'='Provider Approval Number'))
+stopifnot(all(d_check$provider_service_count==d_check$expected_scale),
+  nrow(d_data)==sum(!is.na(d_raw_s$OverallRating)),
+  all(vapply(d_data[d_vars],function(x) all(is.finite(x)|is.na(x)),logical(1))))
+d_date_peaks <- bind_rows(
+  d_raw_s |> count(ServiceApprovalGrantedDate,name='n') |> rename(date=ServiceApprovalGrantedDate) |>
+    mutate(register='All services'),
+  d_raw_p |> count(`Date Approval Granted`,name='n') |> rename(date=`Date Approval Granted`) |>
+    mutate(register='All providers')) |> group_by(register) |> slice_max(n,n=5,with_ties=FALSE) |> ungroup()
+write_csv(d_date_peaks,'outputs/numerical/approval_date_peaks.csv')
+```
+
+The analysis uses the **17,160 labelled services** prepared by Members A/B. Four numerical predictors describe capacity, service approval age, provider approval age and provider scale. Ages use the fixed snapshot date of 18 September 2026 and measure years since recorded approval rather than necessarily years of actual operation. Provider scale counts all registered services attached to the provider, including unlabelled services. Summaries are service-weighted and use available observations without imputation.
+
+**Distributions and missingness.** Approved places range from 6 to 477 (median 60; mean 69.6). All 307 Family Day Care services lack this field, while all 16,853 Centre-Based Care services have it; therefore, capacity comparisons apply only to Centre-Based Care. One service approval age is missing; provider age and scale are complete. Provider scale is strongly right-skewed (median 7, mean 85.0, maximum 611). The 1.5-IQR rule flags 388 capacity values and 2,811 service rows for provider scale; these are screening flags rather than evidence of errors. Approval ages are concentrated around 14.7 years because the raw register records 1 January 2012 for 6,071 service approvals, so approval age should be interpreted cautiously as experience.
+
+```{r d-rating-figure, fig.width=8.5, fig.height=4.7, out.width='92%'}
+d_rating_plot
+```
+
+**Relationships with rating tier.** Above NQS services have a smaller median capacity (54 places) than Meeting NQS (64) and Below NQS (60), although the distributions overlap considerably. Above NQS services also have a higher lower quartile of service approval age (14.62 years versus 7.87 and 6.83), while Meeting and Above medians are both 14.71 years. Median provider age increases from 13.06 to 14.13 to 14.71 years across Below, Meeting and Above NQS. Provider scale is not monotonic across tiers, with medians of 2, 8 and 4 respectively. These patterns may contribute to multivariable classification but do not establish causation or out-of-sample performance.
+
+**Relationships among predictors and modelling implications.** Service and provider ages show a moderate positive Spearman correlation (rho = 0.421), while capacity and service age are negatively associated (rho = -0.266); all remaining absolute correlations are below 0.13. No pair warrants automatic removal based on these correlations alone. Within-service-type summaries retain the general age pattern, although the Family Day Care subgroup is small (307) and lacks capacity data. Preserve service type and structural capacity missingness rather than interpreting missing capacity as zero. Any estimated imputation, transformation and scaling should be learned within training folds, and plausible extremes retained unless source checks identify errors. For generalisation to unseen providers, consider a provider-grouped split. As EDA used the full labelled snapshot, a later holdout is not wholly untouched by exploration. Identifiers and rating-derived predictors will be excluded.
+
+## Operating-pattern EDA
+
+```{r eda operating pattern}
+operating_data <- analysis_data
+
+operating_variables <- c(
+  "annual_open_days",
+  "annual_weekly_hours",
+  "school_term_open_days",
+  "school_term_weekly_hours",
+  "holiday_open_days",
+  "holiday_weekly_hours",
+  "weekly_open_days",
+  "max_weekly_hours",
+  "operating_pattern"
+)
+
+#operating_variables %in% names(operating_data)
+
+#dim(operating_data)
+
+# Numerical operating variables
+operating_numeric <- c(
+  "annual_open_days",
+  "annual_weekly_hours",
+  "school_term_open_days",
+  "school_term_weekly_hours",
+  "holiday_open_days",
+  "holiday_weekly_hours",
+  "weekly_open_days",
+  "max_weekly_hours"
+)
+
+# Create a basic summary table
+operating_summary <- data.frame(
+  variable = operating_numeric,
+
+  observed = sapply(
+    operating_data[operating_numeric],
+    function(x) sum(!is.na(x))
+  ),
+
+  missing = sapply(
+    operating_data[operating_numeric],
+    function(x) sum(is.na(x))
+  ),
+
+  missing_percent = sapply(
+    operating_data[operating_numeric],
+    function(x) round(mean(is.na(x)) * 100, 1)
+  ),
+
+  minimum = sapply(
+    operating_data[operating_numeric],
+    function(x) min(x, na.rm = TRUE)
+  ),
+
+  median = sapply(
+    operating_data[operating_numeric],
+    function(x) median(x, na.rm = TRUE)
+  ),
+
+  maximum = sapply(
+    operating_data[operating_numeric],
+    function(x) max(x, na.rm = TRUE)
+  )
+)
+
+#print(operating_summary)
+
+# Check questionable or extreme operating-hour values
+operating_checks <- data.frame(
+  check = c(
+    "Missing max weekly hours",
+    "Zero max weekly hours",
+    "More than 100 hours per week",
+    "More than 168 hours per week",
+    "Open days outside 0 to 7"
+  ),
+
+  count = c(
+    sum(is.na(operating_data$max_weekly_hours)),
+    sum(operating_data$max_weekly_hours == 0, na.rm = TRUE),
+    sum(operating_data$max_weekly_hours > 100, na.rm = TRUE),
+    sum(operating_data$max_weekly_hours > 168, na.rm = TRUE),
+    sum(
+      operating_data$weekly_open_days < 0 |
+      operating_data$weekly_open_days > 7,
+      na.rm = TRUE
+    )
+  )
+)
+
+#print(operating_checks)
+
+# Display the ten services with the longest weekly hours
+longest_hours <- operating_data |>
+  select(
+    service_id,
+    service_type,
+    rating_tier,
+    weekly_open_days,
+    max_weekly_hours,
+    operating_pattern
+  ) |>
+  arrange(desc(max_weekly_hours)) |>
+  head(10)
+
+#print(longest_hours)
+
+# Overall summaries by rating tier
+operating_by_tier <- operating_data |>
+  group_by(rating_tier) |>
+  summarise(
+    services = n(),
+    missing_hours = sum(is.na(max_weekly_hours)),
+    median_open_days = median(weekly_open_days, na.rm = TRUE),
+    median_weekly_hours = median(max_weekly_hours, na.rm = TRUE),
+    q1_weekly_hours = quantile(
+      max_weekly_hours,
+      0.25,
+      na.rm = TRUE
+    ),
+    q3_weekly_hours = quantile(
+      max_weekly_hours,
+      0.75,
+      na.rm = TRUE
+    )
+  )
+
+#print(operating_by_tier)
+
+# Sensitivity check within each service type
+operating_by_type_tier <- operating_data |>
+  group_by(service_type, rating_tier) |>
+  summarise(
+    services = n(),
+    missing_hours = sum(is.na(max_weekly_hours)),
+    median_open_days = median(weekly_open_days, na.rm = TRUE),
+    median_weekly_hours = median(max_weekly_hours, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+#print(operating_by_type_tier)
+
+# Set the logical order of the outcome
+operating_data$rating_tier <- factor(
+  operating_data$rating_tier,
+  levels = c("Below NQS", "Meeting NQS", "Above NQS")
+)
+
+# Distribution of weekly open days
+open_days_distribution <- operating_data |>
+  count(weekly_open_days) |>
+  mutate(
+    percent = round(100 * n / sum(n), 1)
+  )
+
+# Relationship between open days and weekly hours
+overall_operating_correlation <- cor(
+  operating_data$weekly_open_days,
+  operating_data$max_weekly_hours,
+  use = "complete.obs",
+  method = "spearman"
+)
+
+#print(overall_operating_correlation)
+
+# Correlation within each service type
+correlation_by_service_type <- operating_data |>
+  group_by(service_type) |>
+  summarise(
+    services = n(),
+    spearman_correlation = cor(
+      weekly_open_days,
+      max_weekly_hours,
+      use = "complete.obs",
+      method = "spearman"
+    )
+  )
+
+#print(correlation_by_service_type)
+
+# Colours consistent with the other EDA sections
+rating_colours <- c(
+  "Below NQS" = "#C44E52",
+  "Meeting NQS" = "#4C78A8",
+  "Above NQS" = "#59A14F"
+)
+
+# Weekly operating hours by rating tier and service type
+operating_hours_plot <- ggplot(
+  operating_data |>
+    filter(!is.na(max_weekly_hours)),
+  aes(
+    x = rating_tier,
+    y = max_weekly_hours,
+    fill = rating_tier
+  )
+) +
+  geom_boxplot(
+    width = 0.6,
+    outlier.alpha = 0.2,
+    outlier.size = 0.8
+  ) +
+  facet_wrap(~ service_type) +
+  scale_fill_manual(values = rating_colours) +
+  scale_y_sqrt() +
+  labs(
+    title = "Weekly operating hours by recorded NQS tier",
+    subtitle = "Square-root scale retains the full range while compressing extreme values",
+    x = NULL,
+    y = "Maximum recorded weekly hours",
+    fill = "Rating tier"
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    legend.position = "top",
+    panel.grid.minor = element_blank(),
+    strip.text = element_text(face = "bold")
+  )
+
+#print(operating_hours_plot)
+
+dir.create("figures", showWarnings = FALSE)
+
+ggsave(
+  "figures/operating_hours_by_rating.png",
+  operating_hours_plot,
+  width = 9,
+  height = 5,
+  dpi = 180
+)
+
+# Save supporting outputs
+dir.create(
+  "outputs/operating",
+  recursive = TRUE,
+  showWarnings = FALSE
+)
+
+write_csv(
+  operating_summary,
+  "outputs/operating/operating_summary.csv"
+)
+
+write_csv(
+  operating_checks,
+  "outputs/operating/operating_checks.csv"
+)
+
+write_csv(
+  operating_by_tier,
+  "outputs/operating/operating_by_tier.csv"
+)
+
+write_csv(
+  operating_by_type_tier,
+  "outputs/operating/operating_by_type_tier.csv"
+)
+
+write_csv(
+  open_days_distribution,
+  "outputs/operating/open_days_distribution.csv"
+)
+
+write_csv(
+  correlation_by_service_type,
+  "outputs/operating/correlation_by_service_type.csv"
+)
+```
+
+This section examines whether recorded operating patterns differ across NQS rating tiers.
+
+### Operating hours across NQS rating tiers
+
+<!-- ```{r operating-summary-table, echo=FALSE}
+display_summary <- operating_by_tier
+
+names(display_summary) <- c(
+  "NQS rating tier",
+  "Number of services",
+  "Missing weekly hours",
+  "Median open days",
+  "Median weekly hours",
+  "Q1 weekly hours",
+  "Q3 weekly hours"
+)
+
+knitr::kable(
+  display_summary,
+  digits = 1,
+  caption = "Operating-pattern summary by recorded NQS rating tier"
+)
+``` -->
+Across all three rating tiers, the median service operated five days per week. However, the median maximum recorded weekly hours were lower for Above NQS services (50 hours) than for Below NQS and Meeting NQS services (55 hours each). Above NQS services also showed a wider lower range, with an interquartile range of 33.9–55.0 hours, compared with 50.0–58.8 hours for Below NQS and 50.0–57.5 hours for Meeting NQS. Missing weekly-hours values were uncommon in every tier. These differences in description suggested that weekly operating hours may contribute to classification, however, the substantial overlap between tiers indicates that this variable might not be sufficient enough on its own.
+
+### Distribution of weekly operating hours
+
+```{r operating-hours-plot, echo=FALSE, out.width="80%", fig.cap="Maximum recorded weekly operating hours by NQS rating tier and service type."}
+plot_path <- normalizePath(
+  "figures/operating_hours_by_rating.png",
+  winslash = "/"
+)
+
+knitr::include_graphics(
+  plot_path,
+  rel_path = FALSE
+)
+```
+
+The boxplots show that different service types have different operating hours. Among Centre-Based Care services, Above NQS services had a lower median and a broader lower range than the Below NQS and Meeting NQS groups. Family Day Care services displayed a different pattern, but this comparison is less stable because only 307 Family Day Care services were available, including only 18 Above NQS services. Several services recorded very long weekly operating hours, although none exceeded the feasible maximum of 168 hours per week. These results support retaining service type alongside operating hours and suggest that their relationship with the rating tier may not be adequately represented by a single linear effect.
+
+### Open days and association with weekly hours
+
+Weekly open days showed very limited variation: 92.4% of services had five recorded open days per week. The 142 services with zero recorded open days corresponded to the 142 missing values for maximum weekly hours, suggesting that zero represents unavailable or incomplete operating-time information rather than confirmed closure. Weekly open days and maximum weekly hours had a moderate overall Spearman correlation of 0.381. The correlation was 0.375 for Centre-Based Care and 0.797 for Family Day Care. Hence, weekly open days might provide limited independent classification information for most services, while its stronger relationship with operating hours among Family Day Care services should be considered when assessing predictor redundancy and interactions.
+
+## EDA summary and modelling implications
+
+The EDA shows substantial class imbalance, with Meeting NQS accounting for 74.3% of labelled services. Service offerings, operating pattern and geographic location showed the strongest categorical associations with the rating tier, although several related predictors, particularly the OSHC indicators and state variables, may contain redundant information. Numerical predictors such as approved capacity, approval ages and provider scale differed across rating tiers, but their distributions overlapped considerably and some were strongly skewed. Weekly operating hours also varied across rating tiers and service types, whereas weekly open days showed little variation for most services. Structural missingness was associated with service type, particularly for approved capacity and operating schedules. Overall, no individual predictor clearly separates the three rating tiers. The modelling workflow should therefore combine multiple predictors, account for class imbalance and structural missingness, and compare models that can represent both simple and non-linear relationships.
+
+# Project Planning
+
+## Preprocessing Plan
+
+Only the 17,160 services with a recorded rating_tier will be used for supervised modelling. Service and provider identifiers, all current and previous rating fields, and other variables that directly reveal the outcome will be excluded. The train/test split will be completed before any data-dependent preprocessing. All imputation, transformations, encoding and scaling parameters will then be estimated within each training fold to prevent data leakage.
+
+Structural absence will be distinguished from ordinary missingness. Service type and schedule indicators will be retained to represent unavailable capacity or operating-time information, while remaining numerical missing values will be median-imputed within training folds. Rare categorical levels will be collapsed and categorical predictors dummy-encoded where required. Near-zero-variance predictors will be removed, and highly redundant groups, including the OSHC indicators and overlapping location variables, will be reduced or combined for linear and distance-based models. Strongly right-skewed count variables, particularly provider scale, will be considered for log1p transformation. Numerical predictors will be centred and scaled for multinomial logistic regression, LDA, kNN and SVM, but not necessarily for Random Forest. Because Meeting NQS represents 74.3% of labelled services, stratified resampling and model-supported class weighting will be considered within training only.
+
+## Model Plan
+
+All candidate models will exclude identifiers and rating-derived predictors. Imputation, encoding, transformations and scaling will be estimated within each training fold to prevent data leakage. The table therefore focuses on model-specific requirements.
+
+```{r model-plan-table, echo=FALSE, results='asis'}
+model_plan <- data.frame(
+  Model = c(
+    "Multinomial logistic regression",
+    "Linear discriminant analysis",
+    "k-nearest neighbours",
+    "Support vector machine",
+    "Random forest"
+  ),
+  
+  "EDA-based rationale" = c(
+    "An interpretable linear baseline for testing whether the combined service and provider characteristics distinguish the three overlapping rating tiers.",
+    
+    "Observed shifts in approval ages and other numerical predictors provide a basis for comparing class means using a low-variance linear classifier.",
+    
+    "Substantial overlap among numerical predictors motivates classification based on similarity between multivariable service profiles.",
+    
+    "Class overlap and possible nonlinear interactions between service type, operating hours and other predictors motivate soft-margin linear and RBF boundaries.",
+    
+    "Mixed predictors, skewed numerical variables and possible nonlinear interactions are suitable for a tree-based ensemble."
+  ),
+  
+  "Model-specific preparation and tuning" = c(
+    "Dummy encoding and fold-wise imputation/scaling. Tune regularisation strength and class weights.",
+    
+    "Dummy encoding; remove near-constant and highly correlated predictors; transform skewed counts and standardise. Consider class priors and shrinkage.",
+    
+    "Dummy encoding, fold-wise imputation, transformation and standardisation. Tune neighbour count and distance weighting.",
+    
+    "Dummy encoding, fold-wise imputation and scaling. Tune kernel, cost, RBF sigma and class weights.",
+    
+    "Handle missing and categorical values as required by the implementation; scaling is unnecessary. Tune trees, mtry, node size/depth and class weights."
+  ),
+  
+  "Main trade-off" = c(
+    "Fast and interpretable, but limited for nonlinear effects and interactions and does not use the ordering of the tiers.",
+    
+    "Transparent and efficient, but its Gaussian and equal-covariance assumptions are doubtful for this dataset.",
+    
+    "Can capture local nonlinear patterns, but is sensitive to scaling, irrelevant predictors, dimensionality and imbalance.",
+    
+    "Flexible in high-dimensional settings, but less interpretable and sensitive to scaling and hyperparameter selection.",
+    
+    "Captures nonlinearities and interactions, but is less interpretable and correlated predictors may distort variable importance."
+  ),
+  
+  check.names = FALSE
+)
+
+model_table <- knitr::kable(
+  model_plan,
+  format = "html",
+  row.names = FALSE,
+  caption = "Proposed classification models"
+)
+
+model_table <- sub(
+  "<table",
+  '<table class="model-plan-table"',
+  model_table,
+  fixed = TRUE
+)
+
+cat("
+<style>
+table.model-plan-table {
+  font-size: 90%;
+  line-height: 1.15;
+}
+
+table.model-plan-table th,
+table.model-plan-table td {
+  padding: 4px 6px;
+}
+</style>
+")
+
+cat(model_table)
+```
+
+## Evaluation Plan
+
+The labelled data will be divided into an 80% training set and a 20% test set at the provider level, with approximate stratification by `rating_tier`, so that services from the same provider do not appear in both sets. The five models will be tuned using the same five-fold provider-grouped cross-validation splits within the training data. Macro-F1 will be the primary selection metric because it gives equal importance to all three rating tiers despite the class imbalance. Overall accuracy, per-class recall and confusion matrices will provide secondary assessment, with accuracy compared against the 74.3% majority-class baseline. Hyperparameters will be selected using mean cross-validation macro-F1, while fold-to-fold variability will also be examined. The selected model will then be refitted using the full training set and evaluated once on the held-out test set.
+
+## Timeline, Responsibilities and Backup Plans
+- **Week 7 – Finalise specifications:** All members review the dataset, EDA findings and modelling plan; one coordinator integrates the report. *Backup:Versioned scripts and outputs allow restoration of the last working version.*
+- **Week 8 – Build the shared workflow:** A two-member pair develops preprocessing and resampling, followed by group review. *Backup: A simplified validated recipe will replace unsuccessful optional transformations or feature engineering.*
+- **Weeks 9–10 – Develop models:** Each member fits and tunes one classifier using the common cross-validation folds and reviews another model. *Backup: Unfinished work can be reassigned, with an untuned baseline retained if tuning fails.*
+- **Week 11 – Evaluate models:** An evaluation pair consolidates results, while model owners verify interpretations. *Backup: A second member will independently reproduce the selected workflow using saved scripts and seeds.*
+- **Week 12 – Finalise delivery:** A writing and presentation pair coordinates the report, slides and rehearsal, with approval from all members. *Backup: Shared files, a substitute presenter and an earlier internal deadline provide contingency.*
+
+# References
+
+Australian Children’s Education & Care Quality Authority. (n.d.). *Contact your regulatory authority*. https://www.acecqa.gov.au/help/contact-your-regulatory-authority
+
+Australian Children's Education & Care Quality Authority. (n.d.). *Assessment and rating process*. https://www.acecqa.gov.au/assessment/assessment-and-rating-process
+
+Australian Children's Education & Care Quality Authority. (n.d.). *National registers*. Retrieved September 18, 2026, from https://www.acecqa.gov.au/resources/national-registers
+
+# AI Use Statement
+
+I, Wenchen Zhong (SID: 550245221), acknowledge the use of OpenAI Codex to assist with developing and debugging the initial R code  I reviewed and verified all related content.
+
+I, Khoa Tran (SID: 550339069), acknowledge the use of Anthropic's Claude AI model Sonnet 5 to generate the initial code of the plots included in the EDA analysis section Categorical Predictors. I carefully checked the related content for accuracy.
+
+I, Zixuan Zhao (SID: 550497901), acknowledge the use of OpenAl Codex as a supporting tool during the preparation of the R code, including code development and troubleshooting. I carefully checked the related content for accuracy.
+
+I, Jian Zhang (SID: 541018333), acknowledge the use of OpenAI ChatGPT to assist with generating and refining R code and HTML table formatting for the report. I carefully reviewed and verified the accuracy and appropriateness of the AI-assisted content before including it in the final submission.
+
+I, Yuzhi Shao(Frank) (SID: 550139687), acknowledge the use of OpenAl ChatGPT 5.6 Sol for teaching and debugging R code( which were all carefully checked after generation); formatting help on R markdown and HTML; grammar checking.
