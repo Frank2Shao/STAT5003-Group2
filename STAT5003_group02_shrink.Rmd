@@ -37,7 +37,7 @@ Australian education and care services are assessed against the National Quality
 
 ## Research Question
 
-To what extent can service type, service scale, operating patterns, geographic location, and provider characteristics be used to classify an Australian education and care service's recorded NQS rating tier as Below NQS, Meeting NQS, or Above NQS?
+To what extent can service type, service capacity, operating patterns, geographic location, and provider characteristics be used to classify an Australian education and care service's recorded NQS rating tier as Below NQS, Meeting NQS, or Above NQS?
 
 ## Unit of Analysis and Outcome
 
