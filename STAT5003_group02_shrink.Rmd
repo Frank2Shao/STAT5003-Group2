@@ -6,6 +6,34 @@ output:
     code_folding: hide
     toc: false
 ---
+```{css, echo=FALSE}
+@media print {
+  @page { size: A4; margin: 10mm; }
+  html, body { font-size: 9.5pt !important; line-height: 1.25 !important; }
+  body { margin: 0 !important; }
+  .main-container, .container-fluid.main-container {
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  h1 { font-size: 15pt; margin: 8px 0 4px; }
+  h2 { font-size: 12.5pt; margin: 6px 0 3px; }
+  h3, h4 { font-size: 11pt; margin: 5px 0 2px; }
+  p { margin: 0 0 4px; }
+  ul, ol { margin: 0 0 4px; padding-left: 18px; }
+  li { margin: 0; }
+  .btn-group, .code-folding-btn, .fold-btn, .tocify { display: none !important; }
+  img { max-width: 100% !important; max-height: 62mm; width: auto; height: auto; }
+  .figure, .caption, p.caption { margin: 2px 0; }
+  .caption, p.caption { font-size: 8pt; }
+  table { font-size: 8pt; margin-bottom: 4px; }
+  th, td { padding: 2px 4px !important; }
+  h1, h2, h3, h4 { page-break-after: avoid; }
+  img, table, tr { page-break-inside: avoid; }
+  #references { page-break-before: always; }
+}
+```
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(
@@ -55,71 +83,24 @@ The main stakeholders are education and care regulatory authorities, service pro
 
 # Consider & Gather Data
 
-## Data Sources and Snapshot
+## Sources, Integration and Variables
 
-The Australian Children's Education & Care Quality Authority (ACECQA) publishes national registers of approved education and care services and approved providers. The registers are sourced from the National Quality Agenda IT System and updated daily. The two CSV files used here were downloaded on 18 September 2026:
+Two daily updated ACECQA national registers were downloaded on 18 September 2026 from the [official register page](https://www.acecqa.gov.au/resources/national-registers). The services file has `r format(nrow(services_raw), big.mark = ",")` rows and `r ncol(services_raw)` columns covering service characteristics, schedules and ratings; the providers file has `r format(nrow(providers_raw), big.mark = ",")` rows and `r ncol(providers_raw)` columns covering provider identity, location, approval date and conditions.
 
-- `Education-services-au-export.csv`
-- `Approved-providers-au-export.csv`
+Using the services register as the primary table, we made a validated many-to-one join on `Provider Approval Number`. Service and provider identifiers were unique at their expected levels, and all service rows matched a provider. We derived service/provider age, provider service count, and schedule-based open-day and weekly-hour measures. After excluding services without an outcome, the analysis file contains `r format(nrow(analysis_data), big.mark = ",")` services and `r ncol(analysis_data)` variables. Identifiers are retained only for audit and linkage; all current and previous rating fields are excluded from predictors to prevent target leakage.
 
-The services register contains service characteristics, operating schedules, seven Quality Area ratings, and the recorded overall rating. The providers register contains provider identity, location, approval date, trading name, and approval conditions. The official source is <https://www.acecqa.gov.au/resources/national-registers>.
+## Data Quality and Assignment Criteria
 
-<!-- ```{r source-dimensions}
-knitr::kable(
-  source_dimensions,
-  col.names = c("Dataset", "Rows", "Columns"),
-  caption = "Dimensions of the source and analysis datasets"
-)
-``` -->
+The data satisfy four criteria:
 
-## Data Linkage and Derived Variables
+1. **Large:** `r format(nrow(services_raw), big.mark = ",")` service observations exceed the 10,000-row threshold. A scripted preparation step avoids repeatedly performing the join and schedule conversions.
+2. **Messy:** The raw services file has `r format(sum(is.na(services_raw$OverallRating)), big.mark = ",")` missing outcomes and `r sum(is.na(services_raw$NumberOfApprovedPlaces))` missing capacity values. Schedule missingness is substantial but often structural because services use different schedule types; genuine numeric missingness will be imputed within resampling. Provider scale is also strongly right-skewed (maximum `r max(provider_scale$provider_service_count)` services).
+3. **Integrated:** The two official registers are linked by provider approval number with no duplicate join keys at the relevant level and no unmatched service rows. The join adds provider age and scale to each service.
+4. **Multi-class:** Five recorded NQS levels are consolidated into three ordered tiers. Of the labelled services, `r format(rating_distribution$count[rating_distribution$rating_tier == "Below NQS"], big.mark = ",")` (`r rating_distribution$percent[rating_distribution$rating_tier == "Below NQS"]`%) are Below NQS, `r format(rating_distribution$count[rating_distribution$rating_tier == "Meeting NQS"], big.mark = ",")` (`r rating_distribution$percent[rating_distribution$rating_tier == "Meeting NQS"]`%) are Meeting NQS, and `r format(rating_distribution$count[rating_distribution$rating_tier == "Above NQS"], big.mark = ",")` (`r rating_distribution$percent[rating_distribution$rating_tier == "Above NQS"]`%) are Above NQS. This imbalance requires stratified splitting and class-sensitive metrics.
 
-The services register is the primary table. It was linked to the providers register using `Provider Approval Number`, a many-services-to-one-provider relationship. The `Service Approval Number` field in the provider export was entirely empty and was therefore not used. Both retained identifiers were unique at their expected unit of analysis: there were no duplicate `ServiceApprovalNumber` values in the services register and no duplicate provider approval numbers in the providers register. All `r format(nrow(services_raw), big.mark = ",")` service rows matched a provider record.
-
-Provider scale was derived as the number of registered services linked to each provider. Service and provider ages were calculated from their approval dates using the fixed snapshot date. Operating start and end times were converted into open-day and weekly-hour summaries for annual, school-term, and holiday schedules. Identifiers remain in the processed file for audit and linkage but will not be predictors.
-
-<!-- ```{r linkage-summary}
-knitr::kable(
-  linkage_summary,
-  col.names = c("Linkage check", "Value"),
-  caption = "Data linkage validation"
-)
-``` -->
-
-## Outcome Definition and Leakage Control
-
-<!-- ```{r outcome-code}
-services_base %>%
-  count(rating_tier, .drop = FALSE) %>%
-  mutate(percent = round(100 * n / sum(n), 1))
-``` -->
-
-The outcome consolidates the five recorded NQS levels into three ordered tiers: Significant Improvement Required and Working Towards NQS become **Below NQS**; Meeting NQS remains **Meeting NQS**; and Exceeding NQS and Excellent become **Above NQS**. This retains the policy ordering while avoiding two classes with only four and 25 observations.
-
-Current Quality Area 1--7 ratings and all current or previous overall-rating fields are excluded from the modelling data. The official overall rating is directly determined from the Quality Area ratings, so including them would reveal the outcome rather than test whether service and provider characteristics are informative.
-
-```{r class-distribution, out.width="50%"}
-rating_tier_plot
-```
-
-The outcome is imbalanced: Meeting NQS represents `r rating_distribution$percent[rating_distribution$rating_tier == "Meeting NQS"]`% of labelled services, compared with `r rating_distribution$percent[rating_distribution$rating_tier == "Below NQS"]`% Below NQS and `r rating_distribution$percent[rating_distribution$rating_tier == "Above NQS"]`% Above NQS. A stratified split and imbalance-aware evaluation metrics are therefore required.
-
-## Dataset Requirement Justification
-
-The dataset satisfies four assignment criteria:
-
-1. **Large:** The services register contains `r format(nrow(services_raw), big.mark = ",")` observations, exceeding the 10,000-row threshold. The approximately 15 MB source file is manageable in R, although a single scripted preparation step is used to avoid repeating joins and time conversions.
-2. **Messy:** There are `r format(sum(is.na(services_raw$OverallRating)), big.mark = ",")` missing outcomes and `r sum(is.na(services_raw$NumberOfApprovedPlaces))` missing approved-place values. Schedule fields contain substantial structural missingness because different service types use different operating schedules. Provider trading names and approval conditions are also incomplete. Provider scale is strongly right-skewed, ranging from one to `r max(provider_scale$provider_service_count)` linked services, and requires further outlier assessment.
-3. **Integrated:** Two official registers are linked by `Provider Approval Number`. The linkage is validated for uniqueness and completeness, and provider-level age and scale are added to each service record.
-4. **Multi-class:** The original outcome has five rating levels. The modelling outcome has three ordered classes with marked imbalance, as shown above.
-
-Although the linked raw data exceeds 100 columns, the project does not rely on the **Complex** criterion because duplicated administrative fields and leakage-prone rating fields must be removed before modelling.
-
-<!-- ```{r missingness-plot, fig.height=5.1}
+```{r ab-missingness, out.width='62%', fig.width=7.2, fig.height=4.1}
 missingness_plot
-``` -->
-
-Missing operating-pattern values are not automatically equivalent to data errors: some are structurally absent because a service does not use that schedule type. The preprocessing plan should therefore preserve explicit schedule-type indicators and distinguish structural absence from genuinely missing values. Numeric missing values will require imputation within resampling, rather than before the train/test split.
+```
 
 ## Final Analysis Variables
 
@@ -165,28 +146,17 @@ Overall, certain categorical variables might be redundant. This can be fixed by 
 
 ## Numerical predictors
 
-The analysis uses the **17,160 labelled services** prepared by Members A/B. Four numerical predictors describe capacity, service approval age, provider approval age and provider scale. Ages use the fixed snapshot date of 18 September 2026; they measure years since recorded approval, not necessarily years of actual operation. Provider scale counts all registered services attached to the provider, including unlabelled services. All summaries below are service-weighted and use available observations, without imputation.
+The analysis uses the **17,160 labelled services** prepared by Members A/B. Four numerical predictors describe capacity, service approval age, provider approval age and provider scale. Ages use the fixed snapshot date of 18 September 2026 and measure years since recorded approval rather than necessarily years of actual operation. Provider scale counts all registered services attached to the provider, including unlabelled services. Summaries are service-weighted and use available observations without imputation.
 
-<!-- ```{r d-summary}
-d_display <- d_by_tier |>
-  mutate(Variable = factor(variable, levels=d_vars,
-    labels=c('Approved places','Service approval age (years)',
-             'Provider approval age (years)','Provider service count')),
-    summary=sprintf('%.1f [%.1f, %.1f]',median,q1,q3)) |>
-  select(Variable,rating_tier,summary) |>
-  pivot_wider(names_from=rating_tier,values_from=summary) |> arrange(Variable)
-knitr::kable(d_display,caption='Median [Q1, Q3] by rating tier (original units).')
-``` -->
+**Distributions and missingness.** Approved places range from 6 to 477 (median 60; mean 69.6). All 307 Family Day Care services lack this field, while all 16,853 Centre-Based Care services have it; therefore, capacity comparisons apply only to Centre-Based Care. One service approval age is missing; provider age and scale are complete. Provider scale is strongly right-skewed (median 7, mean 85.0, maximum 611). The 1.5-IQR rule flags 388 capacity values and 2,811 service rows for provider scale; these are screening flags rather than evidence of errors. Approval ages are concentrated around 14.7 years because the raw register records 1 January 2012 for 6,071 service approvals, so approval age should be interpreted cautiously as experience.
 
-**Distributions and missingness.** Approved places range from 6 to 477 (median 60; mean 69.6). All 307 Family Day Care services lack this field, while all 16,853 Centre-Based Care services have it; therefore, capacity comparisons describe Centre-Based Care only. One service approval age is missing; provider age and scale are complete. Provider scale is strongly right-skewed (median 7, mean 85.0, maximum 611). The 1.5-IQR rule flags 388 capacity values and 2,811 service rows for provider scale; these are screening flags, not evidence of erroneous records. Large providers recur across services. Across the 6,885 distinct providers represented in the labelled data, median provider scale is only 1 (mean 2.59), illustrating the effect of service weighting. Approval ages are concentrated around 14.7 years: the full raw register records 1 January 2012 for 6,071 service approvals. This date clustering requires caution when interpreting age as experience.
-
-```{r d-rating-figure, fig.width=12, fig.height=4, out.width='80%'}
+```{r d-rating-figure, fig.width=8.5, fig.height=4.7, out.width='92%'}
 d_rating_plot
 ```
 
-**Relationships with rating tier.** Above NQS services have a smaller median capacity (54 places) than Meeting NQS (64) and Below NQS (60), with considerable overlap. Above NQS services also have a higher lower quartile of service approval age (14.62 years versus 7.87 and 6.83 years), although the Meeting and Above medians are both 14.71 years. Median provider age increases from 13.06 to 14.13 to 14.71 years across Below, Meeting and Above NQS. Provider scale is not monotonically related to the ordered tiers: the respective medians are 2, 8 and 4. These patterns motivate multivariable classification, but do not establish causation or out-of-sample predictive performance.
+**Relationships with rating tier.** Above NQS services have a smaller median capacity (54 places) than Meeting NQS (64) and Below NQS (60), although the distributions overlap considerably. Above NQS services also have a higher lower quartile of service approval age (14.62 years versus 7.87 and 6.83), while Meeting and Above medians are both 14.71 years. Median provider age increases from 13.06 to 14.13 to 14.71 years across Below, Meeting and Above NQS. Provider scale is not monotonic across tiers, with medians of 2, 8 and 4 respectively. These patterns may contribute to multivariable classification but do not establish causation or out-of-sample performance.
 
-**Relationships among predictors and modelling implications.** Service and provider ages have a moderate positive Spearman correlation (rho = 0.421); capacity and service age are negatively associated (rho = -0.266). The remaining pairwise correlations have absolute values below 0.13. No pair warrants automatic removal solely on this evidence. Within-service-type summaries retain the general age pattern, while the Family Day Care subgroup is small (307) and lacks capacity data. Preserve service type and structural capacity missingness; use an explicit not-recorded indicator with a documented algorithm-compatible placeholder if needed, rather than interpreting absence as zero capacity. Any estimated imputation, transformations and scaling must be learned within training folds. Compare log1p count transformations for scale-sensitive models and retain plausible extremes unless source checks identify errors. Because services share providers, evaluate a provider-grouped split for generalisation to unseen providers and specify whether deployment concerns existing or new providers. The descriptive EDA uses the complete labelled snapshot, so a later holdout from this same snapshot is not wholly untouched by exploration. Exclude identifiers and all rating-derived predictors; judge classification using macro-F1 and per-class recall alongside accuracy and a majority-class baseline (74.29%).
+**Relationships among predictors and modelling implications.** Service and provider ages show a moderate positive Spearman correlation (rho = 0.421), while capacity and service age are negatively associated (rho = -0.266); all remaining absolute correlations are below 0.13. No pair warrants automatic removal based on these correlations alone. Within-service-type summaries retain the general age pattern, although the Family Day Care subgroup is small (307) and lacks capacity data. Preserve service type and structural capacity missingness rather than interpreting missing capacity as zero. Any estimated imputation, transformation and scaling should be learned within training folds, and plausible extremes retained unless source checks identify errors. For generalisation to unseen providers, consider a provider-grouped split. As EDA used the full labelled snapshot, a later holdout is not wholly untouched by exploration. Identifiers and rating-derived predictors will be excluded.
 
 ## Operating-pattern EDA
 
@@ -351,6 +321,11 @@ Australian Children's Education & Care Quality Authority. (n.d.). *Assessment an
 Australian Children's Education & Care Quality Authority. (n.d.). *National registers*. Retrieved September 18, 2026, from https://www.acecqa.gov.au/resources/national-registers
 
 # AI Use Statement
-If applicable,
 
-I acknowledge the use of [AI tool + version, publisher and URL] to generate [summary of what was generated].
+I, Wenchen Zhong (SID: 550245221), acknowledge the use of OpenAI Codex to assist with developing and debugging the initial R code  I reviewed and verified all related content.
+
+I, Khoa Tran (SID: 550339069), acknowledge the use of Anthropic's [Claude AI model Sonnet 5](https://claude.ai) to generate the initial code of the plots included in the EDA analysis section Categorical Predictors. I carefully checked the related content for accuracy.
+
+I, Zixuan Zhao (SID: 550497901), acknowledge the use of OpenAl Codex as a supporting tool during the preparation of the R code, including code development and troubleshooting. I carefully checked the related content for accuracy.
+
+I, Jian Zhang (SID: 541018333), acknowledge the use of OpenAI ChatGPT to assist with generating and refining R code and HTML table formatting for the report. I carefully reviewed and verified the accuracy and appropriateness of the AI-assisted content before including it in the final submission.
