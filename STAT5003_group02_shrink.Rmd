@@ -133,17 +133,17 @@ Categorical, numerical, and operating-pattern EDA will be added by the assigned 
 
 **Variable Balance**
 
-Examining the distributions of categorical variables of registered services displays some potential issues with imbalanced variables:
+Examining the distributions of categorical variables of the services indicate some imbalance in the variables:
 
 1. **Highly Imbalanced:** `temporarily_closed` (100% No), `service_type` (98% Centre-Based Care), `other_service` (96% No), `provider_has_conditions` (96% False), `preschool_part_school` (95% No). The variables have little to no variation and rare levels will likely produce unstable estimates.
-2. **Imbalanced:** `provider_state` and `state` both shows that most of the registered services are located in NSW, VIC, QLD. Trained model might under-perform for new observations with `state` and `provider_state` with values outside of those three states.
+2. **Imbalanced:** `provider_state` and `state` show that most of services are located in NSW, VIC, QLD. Trained model might under-perform for new services with locations outside of NSW, VIC, and QLD.
 
 **Rating Tier vs. Categorical Predictor**
 
 Computing Cramer's V for each predictor to the target variable, the following variables showed strongest association: `preschool_standalone` (V=0.28), `oschc_after_school` (V=0.22), `oshc_before_school` (V=0.21), `oshc_vacation_care` (V=0.19), `operating_pattern` (V=0.16), `state` (V=0.14), and `preschool_part_school` (V=0.14). 
 Plotting stacked bar chart for each predictor and `rating_tier` pair showed a potential association between being a standalone preschools (`preschool_standalone`) and/or not offering OSHC (`oshc_after_school`, `oshc_before_school`, `oshc_vacation_care`) with a higher percentage of "Above NQS" in `rating_tier`.
 
-Additionally, the following categorical variables have very small Cramer's V value, indicating them as weak candidates for usefulness during training: `other_service` (V=0.02), `provider_has_conditions` (V=0.02), `provider_has_trading_name` (V=0.01), and `temporarily_closed` (V=0). Of these, `temporarily_closed` low values might be explained by its imbalanced value distribution of approximately 100% No.
+Additionally, the some categorical variables have very small Cramer's V value, indicating them as weak candidates for usefulness during training. Of these, `temporarily_closed` low values might be explained by its imbalanced value distribution of approximately 100% No.
 
 ```{r cat v. rating plot, fig.height=5, fig.width=12}
 categorical_outcome_plot
@@ -157,11 +157,11 @@ Multi-collinearity between categorical predictors were checked to further identi
 categorical_pairwise_plot
 ```-->
 
-- The categorical variables indicating if the service offers OSHC for before school, after school, and vacation care are highly related with V value between 0.73 to 0.93, showing that these variables may be better merged into a single feature for model training. Additionally, the variable `operating_pattern` has strong associations with `long_day_care` (V=0.8) and the OSHC cluster (V=0.65-0.73) indicates it partly encodes information from those variables.
+- The categorical variables indicating if the service offers OSHC are highly related ($V\in[0.73,0.93]$). These may be better merged into a single feature for model training. Additionally, the variable `operating_pattern` has strong associations with `long_day_care` (V=0.8) and the OSHC cluster (V=0.65-0.73) indicates it partly encodes information from those variables.
 
 - High associations between the variable `state` with `provider_state`, `service_has_conditions` and between `provider_state` and `provider_state_matches_service` shows that these variables are somewhat correlated.
 
-Overall, certain categorical variables might be redundant. Some potential fixes might be to only include one representative variable per cluster, perform regularization on the cluster, or use tree-based models to avoid inflating variance.
+Overall, certain categorical variables might be redundant. This can be fixed by including only one representative per cluster, regularization, or using tree-based models to avoid inflating variance.
 
 ## Numerical predictors
 
