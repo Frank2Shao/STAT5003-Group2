@@ -1,0 +1,13 @@
+"specification","C","elapsed_seconds"
+"Unweighted pilot",1,32.6099999999988
+"Unweighted",0.0078125,19.46
+"Unweighted",0.03125,19.8699999999999
+"Unweighted",0.125,22.54
+"Unweighted",0.5,99.0699999999999
+"Unweighted",2,175.02
+"Weighted",0.0078125,26.8800000000001
+"Weighted",0.03125,28.0300000000007
+"Weighted",0.0625,28.2799999999988
+"Weighted",0.125,95.6599999999999
+"Weighted",0.25,34.3899999999994
+"Weighted",0.5,211.3

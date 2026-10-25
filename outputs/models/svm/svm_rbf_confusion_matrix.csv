@@ -1,0 +1,10 @@
+"Observed","Predicted","n"
+"Below NQS","Below NQS",86
+"Meeting NQS","Below NQS",225
+"Above NQS","Below NQS",30
+"Below NQS","Meeting NQS",890
+"Meeting NQS","Meeting NQS",8764
+"Above NQS","Meeting NQS",1471
+"Below NQS","Above NQS",40
+"Meeting NQS","Above NQS",965
+"Above NQS","Above NQS",1026
