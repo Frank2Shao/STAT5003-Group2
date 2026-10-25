@@ -1,0 +1,10 @@
+Observed,Predicted,Freq
+Below NQS,Below NQS,295
+Meeting NQS,Below NQS,1190
+Above NQS,Below NQS,143
+Below NQS,Meeting NQS,610
+Meeting NQS,Meeting NQS,6710
+Above NQS,Meeting NQS,855
+Below NQS,Above NQS,111
+Meeting NQS,Above NQS,2054
+Above NQS,Above NQS,1529

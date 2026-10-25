@@ -1,0 +1,90 @@
+---
+title: "Random Forest: Initial Modelling Results"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+root <- if (file.exists("outputs/random_forest/cv_summary.csv")) "." else ".."
+read_result <- function(name) read.csv(file.path(root, "outputs/random_forest", name))
+results <- read_result("cv_summary.csv")
+best <- results[1, ]
+baseline <- read_result("baseline_cv.csv")
+classes <- read_result("per_class_metrics.csv")
+```
+
+## Approach
+
+The initial random forest uses the group's unchanged `R/06_model_setup.R`,
+including the same provider-grouped training/test split and five validation folds.
+All recipe parameters and balanced class weights are estimated using the analysis
+portion of each fold only. No additional scaling is applied to the tree model.
+
+Eight configurations compare mtry of 5 or 12, minimum node size of 5 or 20,
+and uniform or inverse-frequency class weights. Each forest contains 500 trees.
+The configuration with the highest mean validation macro-F1 is selected.
+This is a compact initial search, not an exhaustive optimisation.
+
+## Cross-Validation Results
+
+The selected configuration uses **mtry = `r best$mtry`**, **minimum node size =
+`r best$min_node_size`**, and **`r best$weighting` weights**.
+Mean fold macro-F1 is **`r sprintf('%.3f', best$mean_macro_f1)`**, with fold SD
+**`r sprintf('%.3f', best$sd_macro_f1)`**. Mean fold accuracy is
+**`r sprintf('%.1f%%', 100 * best$mean_accuracy)`**.
+For comparison, a training-fold majority classifier achieves mean macro-F1
+**`r sprintf('%.3f', mean(baseline$Macro_F1))`** and mean accuracy
+**`r sprintf('%.1f%%', 100 * mean(baseline$Accuracy))`** on these same validation folds.
+
+```{r}
+knitr::kable(results, digits = 3)
+```
+
+The following class metrics and confusion matrix pool all out-of-fold predictions
+for the selected configuration. Pooled metrics need not equal the average of fold
+metrics because fold sizes differ.
+
+```{r}
+knitr::kable(read_result("per_class_metrics.csv"), digits = 3)
+knitr::include_graphics(file.path(root, "figures/random_forest/confusion_matrix.png"))
+```
+
+## Interpretation and Limitations
+
+The selected model improves macro-F1 over the majority classifier, but sacrifices
+overall accuracy. This is consistent with the group's choice to give each rating
+tier equal importance rather than optimise accuracy dominated by Meeting NQS.
+Below NQS remains difficult: its pooled recall is
+`r sprintf('%.1f%%', 100 * classes$recall[classes$class == 'Below NQS'])` and precision is
+`r sprintf('%.1f%%', 100 * classes$precision[classes$class == 'Below NQS'])`.
+This initial model therefore has substantial room for improvement and should be
+compared with the other classifiers using exactly the same grouped folds.
+
+```{r}
+knitr::include_graphics(file.path(root, "figures/random_forest/importance.png"))
+```
+
+Importance is measured using out-of-bag permutation in the final training-set
+forest. It describes model reliance, not causation; correlated predictors can
+share or distort importance. OOB samples are not provider-grouped, so OOB results
+are not used as the model's validation performance.
+
+These CV results also selected the hyperparameters and may be optimistic; they
+are not independent test-set estimates. The held-out test set has not been used
+to choose the model or calculate performance. A final forest and fitted recipe
+are saved for later evaluation after the group finalises model selection.
+
+This draft deliberately retains the shared preprocessing unchanged. Its
+near-zero-variance filter removes the Family Day Care service-type indicator in
+all five folds despite structural capacity missingness in that subgroup. This
+known discrepancy with the preprocessing plan remains for group discussion.
+Any change to the common workflow requires rerunning the affected models.
+
+## Reproduction
+
+From the repository root, run `source("R/07_random_forest.R")` in RStudio.
+Then render this report using
+`rmarkdown::render("reports/Random_Forest_Draft.Rmd")`.
+Required packages are readr, dplyr, caret, recipes, ranger, ggplot2,
+rmarkdown and knitr. Outputs are saved under `outputs/random_forest/` and
+`figures/random_forest/`. Keep the repository directory structure intact.
