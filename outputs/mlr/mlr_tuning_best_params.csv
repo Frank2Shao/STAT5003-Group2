@@ -1,0 +1,2 @@
+"weights","lambda","mean_macro_f1","sd_macro_f1","mean_accuracy","folds"
+"sqrt_inverse",0.003,0.48587554985897,0.015105289852062,0.729183279973644,5
