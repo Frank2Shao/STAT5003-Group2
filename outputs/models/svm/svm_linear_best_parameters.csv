@@ -1,0 +1,2 @@
+"kernel","C","weighting","weight_Below_NQS","weight_Meeting_NQS","weight_Above_NQS","primary_metric"
+"Linear",0.125,"Square-root inverse frequency",3.130054966688,1,1.9847060668384,"Macro_F1"

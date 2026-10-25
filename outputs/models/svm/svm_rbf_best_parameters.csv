@@ -1,0 +1,2 @@
+"method","kernel","C","sigma","weighting","selection_metric","tuning_strategy","cross_validation"
+"svmRadial","RBF",0.5,0.015625,"Square-root inverse frequency","Macro_F1","Targeted two-parameter sensitivity analysis","5-fold provider-grouped cross-validation"
