@@ -1,0 +1,201 @@
+---
+title: Quarto `reveal.js` template
+subtitle: School of Life and Environmental Sciences (SOLES)
+author:
+  - name: Januar Harianto
+    affiliations: The University of Sydney
+embed-resources: false # embed resources into single HTML file -- enable when ready to publish
+# NOTE: please check _quarto.yml file for more options
+---
+
+# About
+
+:::{.callout-important}
+This template is on a [Creative Commons Attribution-ShareAlike 4.0 International License][cc-by]. If you choose to use this template, please attribute the source. You may also share your work under the same license. For example:
+
+> This presentation is based on the [SOLES reveal.js Quarto template](https://github.com/usyd-soles-edu/soles-revealjs) and is licensed under a [Creative Commons Attribution 4.0 International License][cc-by].
+
+Note that you do **not** need to license your presentation under cc-by 4.0. You can choose a different license, or no license at all. **The only requirement is that you attribute the source.**
+:::
+
+ 
+
+
+## Quarto
+
+A **technical writing** system that produces *reproducible*, *versioned*, and *extensible* documents -- the next generation of [**R Markdown**](https://rmarkdown.rstudio.com/).
+
+![](images/quarto.jpeg)
+
+## Features (HTML)
+Follows the **University of Sydney** brand guidelines.
+
+- **Logos** - Primary logo on the title slide (black), and secondary horizontal logo on all other slides.
+- **Colours** - Uses the official University of Sydney colours [**Ochre**]{style="color:#e64626"}, [**Charcoal**]{style="color:#424242"}, [**Heritage Rose**]{style="color:#daa8a2"}, [**Jacaranda**]{style="color:#8f9ec9"} and [**Eucalypt**]{style="color:#71a499"}.
+
+
+
+
+## PDF output 
+
+
+1. You **must** have Chrome, or a Chromium-based browser installed.
+2. Open the HTML output in Chrome.
+3. Press the `E` key to enter print mode.
+4. Print to PDF using `ctrl` + `p` (Windows) or `cmd` + `p` (macOS).
+
+# Quick start
+
+## Installing Quarto
+
+Quarto is available for Windows, macOS, and Linux. See [installation instructions](https://quarto.org/docs/getting-started/installation.html).
+
+### Recommendation
+
+[**Visual Studio Code**](https://code.visualstudio.com/) is recommended as the editor for Quarto. It is free, open-source, and has a lot of extensions that can be used to enhance the writing experience.
+
+### However...
+
+Users familiar with [RStudio](https://posit.co/) can also use it to write Quarto documents. See [here](https://quarto.org/docs/get-started/hello/rstudio.html) for more information.
+
+## Installing this template
+
+There are three (3) ways:
+
+::: fragment
+### 1. Recommended: Use the Quarto CLI
+
+With the [**Quarto CLI**](https://quarto.org/docs/getting-started/installation.html#installing-the-quarto-cli) installed, run the following command in your terminal and follow the instructions:
+
+```sh
+quarto use template usyd-soles-edu/soles-revealjs
+```
+:::
+
+
+::: fragment
+### 2. Download the template directly
+
+You can download the template folder directly from GitHub, ready to use. Go to the [repository](https://github.com/usyd-soles-edu/soles-revealjs) and click on "< > Code", then "Download ZIP". Once you unzip the folder.
+:::
+
+::: fragment
+### 3. Clone the template repository
+
+Go to the [repository](https://github.com/usyd-soles-edu/soles-revealjs) and click on "Use this template". Note that you will need to be familiar with Git and GitHub to use this method.
+:::
+
+## Editing the template
+
+All written content is in the `template.qmd` file. You may rename this file to whatever you like.
+
+### HTML output
+
+Slides that are generated from this template are in HTML format. You can view the slides by opening the `.html` file in your browser. This file is generated in the same folder as the `.qmd` file.
+
+### Options
+
+Edit the `_quarto.yml` file to override the default options. For example, you can enable or disable the table of contents, change the theme, and more. You will need to know about [Quarto project basics](https://quarto.org/docs/projects/quarto-projects.html)to do this.
+
+
+
+## Markdown
+
+
+### Flavour
+
+Quarto uses [**Pandoc-flavoured Markdown**](https://quarto.org/docs/authoring/markdown-basics.html) for text formatting.
+
+### Formatting
+
+**Bold** and *italic*. `Inline code`. What about a [link](https://quarto.org)? And a footnote[^1]? We can also use subscript~s~ and superscript^s^.
+
+
+### Lists
+
+- Lists **must** be preceded by a blank line.
+- We can also created nested lists:
+  1. This list is ordered.
+     - Next item in the list, nested and back to unordered.
+
+
+[^1]: This is a footnote.
+
+
+
+# Advanced features
+
+## Reproducible workflows
+
+The advantage of Quarto over traditional slide software is that it allows code and output to be embedded in the document. This means that you can create a document that is **reproducible** and **versioned**.
+
+For example, the source of this slide is in the `template.qmd` file.
+
+## Code example  1
+
+Using R, we show how to fit a linear regression model and print the model summary. Click on the code dropdown to see the code.
+
+```{r}
+#| code-fold: true
+# fit a linear regression model
+model <- lm(mpg ~ wt, data = mtcars)
+# print the model summary
+summary(model)
+```
+
+## Code example 2
+
+In this example code folding is not activated, allowing viewers to see the code that generates the plot.
+```{r}
+library(ggplot2)
+# plot a very nice plot based on iris dataset
+ggplot(iris, aes(x = Sepal.Length, y = Sepal.Width, color = Species)) +
+    geom_point() +
+    theme_classic()
+```
+
+## Code example 3
+
+In this example we use the `#| output-location: column` execution option to automatically place the output in a column next to the code. As execution options are not shown in Quartz slides, you will need to view the `.qmd` source of this slide to see how it is implemented.
+
+```{r}
+#| output-location: column
+#| echo: true
+ggplot(iris, aes(x = Sepal.Length,
+       y = Sepal.Width, color = Species)) +
+    geom_point() +
+    theme_classic(base_size = 20) +
+    theme(legend.position = "bottom") 
+```
+
+
+## Equations
+
+Equations are based on [**LaTeX**](https://www.latex-project.org/) and powered by [**MathJax**](https://quarto.org/docs/authoring/math.html).
+
+### Inline equations
+Inline equations are surrounded by `$`. For example, the equation $y = \beta_0 + \beta_1 x + \epsilon$ is a linear regression model.
+
+### Display equations
+Display equations are surrounded by `$$`. For example, one way to display the equation for a [Fourier series](https://en.wikipedia.org/wiki/Fourier_series) is:
+
+$$ f(x) = \frac{a_0}{2} + \sum_{n=1}^{\infty} \left[ a_n \cos \left( \frac{2 \pi n x}{L} \right) + b_n \sin \left( \frac{2 \pi n x}{L} \right) \right] $$
+
+## Callout blocks
+
+::: {.callout-note}
+Callout blocks are a way to draw attention to important points. They are rendered in a larger font size in this template.
+:::
+
+::: {.callout-tip}
+Read more about callout blocks in the [Quarto documentation](https://quarto.org/docs/authoring/callouts.html).
+:::
+
+
+# Thanks!
+
+This presentation is based on the [SOLES Quarto reveal.js template](https://github.com/usyd-soles-edu/soles-revealjs) and is licensed under a [Creative Commons Attribution 4.0 International License][cc-by].
+
+
+<!-- Links -->
+[cc-by]: http://creativecommons.org/licenses/by/4.0/
