@@ -1,0 +1,3 @@
+"model","macro_f1","accuracy","n_test"
+"MLR (shared split)",0.454182942710592,0.732459732459733,3663
+"Majority baseline",0.28847245883021,0.762762762762763,3663

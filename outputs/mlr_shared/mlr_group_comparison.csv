@@ -1,0 +1,2 @@
+"model","cv_scheme","selection_metric","cv_mean_macro_f1","cv_sd_macro_f1","cv_mean_accuracy","penalty","weighting","test_metrics_available"
+"MLR (ridge, tuned)","5-fold provider-grouped","macro_f1",0.487115329657249,0.0180069836795293,0.725515055543202,0.001,"sqrt_inverse",FALSE
