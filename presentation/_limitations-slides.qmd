@@ -1,0 +1,11 @@
+## Limitations and reflection
+
+### Limits on our conclusions
+
+- **Class imbalance:** Minority-class detection involves missed cases and false alarms. Overall accuracy is insufficient.
+- **Data quality:** Approval age is an imperfect proxy for experience. Capacity is missing for all Family Day Care services.
+- **Validation scope:** Grouped CV does not establish future performance. Earlier full-data EDA limits holdout independence.
+
+### What we learned and would change
+
+- **DIP shaped evaluation:** EDA supported Macro-F1 and provider grouping. Next time, reserve evaluation data before EDA and validate on a later snapshot, including checks by service type.
