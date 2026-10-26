@@ -1,0 +1,2 @@
+"model","lambda","weights","criterion","selected_before_test_scoring"
+"MLR (shared split)",0.001,"sqrt_inverse","highest mean training CV Macro-F1",TRUE

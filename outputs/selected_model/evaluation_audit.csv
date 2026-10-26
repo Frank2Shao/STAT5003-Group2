@@ -1,0 +1,7 @@
+"check","value"
+"training_rows",13497
+"test_rows",3663
+"training_providers",5509
+"test_providers",1376
+"overlapping_providers",0
+"preprocessing_matches_training_only",1
