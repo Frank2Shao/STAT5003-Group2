@@ -1,0 +1,50 @@
+---
+title: "lda_model_slide"
+format: 
+  revealjs:
+    theme: default
+    slide-number: true
+    transition: slide
+    title-slide: false
+---
+
+# Models
+
+## LDA: Implementation & Tuning
+
+**Purpose**
+
+Observed shifts in approval ages and other numerical predictors provide a basis for comparing class means using a low-variance linear classifier.
+
+**Pre-Processing**
+
+Additionally removed linear dependencies among predictors and dropped predictors correlated above 0.9.
+
+**Model**
+
+Trained with `lda2` method to tune `dimen` --- the number of discriminant functions used.
+
+Two class priors were trained and compared:
+
+- Empirical: Follows training class proportions.
+
+- Equal: Shift decision boundaries toward minority tiers to counter class imbalance. Selection Metric: Macro F1 with equal weight for classes.
+
+## LDA: Results
+
+| Model | Dimension | Macro F1 | Accuracy | Below NQS Recall | Meeting NQS Recall | Above NQS Recall |
+|:----------|:----------|----------:|----------:|----------:|----------:|----------:|
+| Empirical | 1 | 0.41 | 0.74 | 0.00 | 0.93 | 0.31 |
+| Empirical | 2 | 0.43 | 0.74 | 0.03 | 0.92 | 0.32 |
+| Equal     | 1 | 0.38 | 0.40 | 0.60 | 0.32 | 0.65 |
+| Equal     | 2 | 0.44 | 0.51 | 0.53 | 0.48 | 0.60 |
+
+The best performing model is the Equal LDA model with dimension of 2 at Marco F1 score of 0.44. The Empirical model with the same dimension scored 0.43. The 0.01 difference might be noise.
+
+Equal prior LDA shows lower accuracy score due to penalizing predicting the majority class.
+
+```{r}
+#| out-width: 80%
+knitr::include_graphics("../images/lda_train_cm.png")
+```
+

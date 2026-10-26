@@ -195,3 +195,8 @@ div {
     color: $eucalypt;
   }
 }
+
+// CV-Comparison
+.smaller table { border-collapse: collapse; }
+.smaller th, .smaller td { border: 1px solid #999; padding: 4px 10px; }
+.smaller th { background: #f0f0f0; }
