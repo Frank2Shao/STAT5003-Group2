@@ -39,12 +39,12 @@ Two class priors were trained and compared:
 | Equal     | 1 | 0.38 | 0.40 | 0.60 | 0.32 | 0.65 |
 | Equal     | 2 | 0.44 | 0.51 | 0.53 | 0.48 | 0.60 |
 
-Best performing model is the Equal LDA model with dimension of 2 with Macro F1 score of 0.51.
+The best performing model is the Equal LDA model with dimension of 2 at Marco F1 score of 0.44. The Empirical model with the same dimension scored 0.43. The 0.01 difference might be noise.
 
 Equal prior LDA shows lower accuracy score due to penalizing predicting the majority class.
 
 ```{r}
 #| out-width: 80%
-knitr::include_graphics("../images/LDA_train_cm.png")
+knitr::include_graphics("../images/lda_train_cm.png")
 ```
 

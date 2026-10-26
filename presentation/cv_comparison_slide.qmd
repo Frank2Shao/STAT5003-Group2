@@ -9,9 +9,9 @@ library(ggplot2)
 # Paths are relative to presentation/.
 o <- "../outputs"
 files <- c(
-  mlr_cfg   = file.path(o, "mlr/mlr_selected_config.csv"),
-  mlr_fold  = file.path(o, "mlr/mlr_tuning_fold_metrics.csv"),
-  mlr_class = file.path(o, "mlr/mlr_tuning_class_metrics.csv"),
+  mlr_cfg   = file.path(o, "mlr_shared/mlr_selected_config.csv"),
+  mlr_fold  = file.path(o, "mlr_shared/mlr_tuning_fold_metrics.csv"),
+  mlr_class = file.path(o, "mlr_shared/mlr_tuning_class_metrics.csv"),
   lda_fold  = file.path(o, "lda/lda_cv_fold_metrics.csv"),
   knn_best  = file.path(o, "knn/best_parameters.csv"),
   knn_fold  = file.path(o, "knn/cv_fold_metrics.csv"),
