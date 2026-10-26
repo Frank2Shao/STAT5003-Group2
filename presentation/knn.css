@@ -1,0 +1,14 @@
+/* Scoped additions to the original SOLES theme. */
+.reveal .knn-slide h2 { font-size: 1.55em; line-height: 1.2; margin-bottom: 24px; }
+.reveal .knn-slide h3 { font-size: 1.12em; margin: 0 0 14px; }
+.reveal .knn-slide .columns { gap: 34px; align-items: flex-start; }
+.reveal .knn-slide .column { font-size: 26px; line-height: 1.4; }
+.reveal .knn-slide .column p { margin-bottom: 18px; }
+.reveal .knn-slide ul { margin: 0 0 20px 22px; }
+.reveal .knn-slide li { margin-bottom: 14px; }
+.reveal .knn-slide strong { color: #c53519; }
+.reveal .knn-slide img { margin: 0; max-height: 430px; object-fit: contain; }
+.reveal .knn-slide figure { margin: 0; }
+.reveal .knn-slide table { font-size: 23px; margin: 0 0 20px; width: 100%; }
+.reveal .knn-slide table th, .reveal .knn-slide table td { padding: 10px 8px; }
+.reveal .knn-slide .knn-caption { font-size: 18px; line-height: 1.4; color: #555; margin-top: 14px; }
