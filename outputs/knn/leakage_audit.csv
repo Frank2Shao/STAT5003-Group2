@@ -1,0 +1,6 @@
+fold,training_rows,validation_rows,provider_overlap,all_classes_present
+Fold1,10415,3082,0,TRUE
+Fold2,10991,2506,0,TRUE
+Fold3,10961,2536,0,TRUE
+Fold4,10678,2819,0,TRUE
+Fold5,10943,2554,0,TRUE

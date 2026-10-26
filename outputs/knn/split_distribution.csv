@@ -1,0 +1,7 @@
+split,rating_tier,n_services,percentage
+Test,Below NQS,248,6.8
+Test,Meeting NQS,2794,76.3
+Test,Above NQS,621,17
+Training,Below NQS,1016,7.5
+Training,Meeting NQS,9954,73.7
+Training,Above NQS,2527,18.7

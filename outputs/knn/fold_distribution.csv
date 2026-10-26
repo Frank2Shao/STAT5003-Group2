@@ -1,0 +1,16 @@
+fold,rating_tier,n_services,percentage
+Fold1,Below NQS,199,6.5
+Fold1,Meeting NQS,2261,73.4
+Fold1,Above NQS,622,20.2
+Fold2,Below NQS,187,7.5
+Fold2,Meeting NQS,1846,73.7
+Fold2,Above NQS,473,18.9
+Fold3,Below NQS,187,7.4
+Fold3,Meeting NQS,1844,72.7
+Fold3,Above NQS,505,19.9
+Fold4,Below NQS,253,9
+Fold4,Meeting NQS,2142,76
+Fold4,Above NQS,424,15
+Fold5,Below NQS,190,7.4
+Fold5,Meeting NQS,1861,72.9
+Fold5,Above NQS,503,19.7

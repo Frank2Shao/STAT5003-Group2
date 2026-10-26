@@ -215,6 +215,7 @@ lda.metric.plot <- lda_class_metrics %>%
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 30, hjust = 1))
 
+write_csv(lda_fit_equal$resample, "outputs/lda/lda_cv_fold_metrics.csv")
 ggsave("figures/lda_train_cm.png",      lda.train.plot,  width = 6, height = 6, dpi = 220)
 ggsave("figures/lda_test_cm.png",       lda.test.plot,   width = 6, height = 6, dpi = 220)
 ggsave("figures/lda_class_metrics.png", lda.metric.plot, width = 9, height = 4, dpi = 220)

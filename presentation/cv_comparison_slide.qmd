@@ -1,0 +1,140 @@
+# Cross-validation model comparison
+```{r}
+#| code-fold: true
+library(dplyr)
+library(tidyr)
+library(readr)
+library(ggplot2)
+
+# Paths are relative to presentation/.
+o <- "../outputs"
+files <- c(
+  mlr_cfg   = file.path(o, "mlr/mlr_selected_config.csv"),
+  mlr_fold  = file.path(o, "mlr/mlr_tuning_fold_metrics.csv"),
+  mlr_class = file.path(o, "mlr/mlr_tuning_class_metrics.csv"),
+  lda_fold  = file.path(o, "lda/lda_cv_fold_metrics.csv"),
+  knn_best  = file.path(o, "knn/best_parameters.csv"),
+  knn_fold  = file.path(o, "knn/cv_fold_metrics.csv"),
+  svm_fold  = file.path(o, "models/svm/svm_rbf_selected_resample_results.csv"),
+  rf_sum    = file.path(o, "random_forest/cv_summary.csv"),
+  rf_fold   = file.path(o, "random_forest/cv_fold_metrics.csv"),
+  baseline  = file.path(o, "random_forest/baseline_cv.csv") 
+)
+if (any(!file.exists(files))) {
+  stop("Run the model scripts first. Missing:\n", paste(files[!file.exists(files)], collapse = "\n"))
+}
+r <- lapply(files, read_csv, show_col_types = FALSE)
+
+tiers   <- c("Below NQS", "Meeting NQS", "Above NQS")
+recalls <- paste0("Recall_", make.names(tiers))
+keep    <- c("fold", "Macro_F1", "Accuracy", recalls)
+
+# MLR: pick the CV-selected configuration out of the tuning grid, then harmonize column names
+sel <- function(d) filter(d, weights == r$mlr_cfg$weights, near(lambda, r$mlr_cfg$lambda))
+mlr <- sel(r$mlr_fold) |>
+  transmute(fold, Macro_F1 = macro_f1, Accuracy = accuracy) |>
+  left_join(
+    sel(r$mlr_class) |>
+      mutate(class = paste0("Recall_", make.names(class))) |>
+      select(fold, class, recall) |>
+      pivot_wider(names_from = class, values_from = recall),
+    by = "fold"
+  )
+
+lda <- r$lda_fold |> rename(fold = Resample)
+knn <- r$knn_fold |> filter(k == r$knn_best$k, kernel == r$knn_best$kernel)
+svm <- r$svm_fold |> rename(fold = Resample)
+rf  <- r$rf_fold  |> filter(candidate == r$rf_sum$candidate[1])   # cv_summary is sorted best-first
+
+cv_folds <- bind_rows(
+  "MLR (Ridge)"       = select(mlr, all_of(keep)),
+  "LDA"               = select(lda, all_of(keep)),
+  "kNN"               = select(knn, all_of(keep)),
+  "SVM (RBF)"         = select(svm, all_of(keep)),
+  "Random Forest"     = select(rf,  all_of(keep)),
+  "Baseline" = select(r$baseline, all_of(keep)),
+  .id = "model"
+)
+stopifnot(all(table(cv_folds$model) == 5), !anyNA(cv_folds))
+
+cv_summary <- cv_folds |>
+  group_by(model) |>
+  summarise(
+    sd_f1 = sd(Macro_F1),
+    across(c(Macro_F1, Accuracy, all_of(recalls)), mean),
+    .groups = "drop"
+  ) |>
+  arrange(desc(Macro_F1))
+
+model_order <- cv_summary$model
+models_only <- filter(cv_summary, model != "Baseline")
+base_f1     <- cv_summary$Macro_F1[cv_summary$model == "Baseline"]
+```
+
+## CV results
+
+::: {.smaller}
+```{r}
+#| code-fold: true
+cv_summary |>
+  transmute(
+    Model = model,
+    `Macro F1` = Macro_F1,
+    `SD (Macro F1)` = sd_f1,
+    Accuracy,
+    `Below NQS Recall` = Recall_Below.NQS,
+    `Meeting NQS Recall` = Recall_Meeting.NQS,
+    `Above NQS Recall` = Recall_Above.NQS
+  ) |>
+  select(Model, `Macro F1`, Accuracy, `Below NQS Recall`, `Meeting NQS Recall`, `Above NQS Recall`) |>
+  knitr::kable(digits = 2, align = c("l", rep("r", 6)), format = "html")
+```
+:::
+
+Values are means over the five folds.
+
+## Macro F1 across folds
+
+```{r}
+#| code-fold: true
+#| fig-width: 9
+#| fig-height: 4.3
+#| out-width: 90%
+cv_folds |>
+  mutate(model = factor(model, levels = rev(model_order))) |>
+  ggplot(aes(Macro_F1, model, fill = model == "Baseline")) +
+  geom_boxplot(width = 0.55, outlier.shape = NA, alpha = 0.6) +
+  geom_point(size = 2.2, alpha = 0.8) +
+  scale_fill_manual(values = c(`TRUE` = "grey80", `FALSE` = "steelblue"), guide = "none") +
+  labs(x = "Macro F1 (one point per fold)", y = NULL) +
+  theme_minimal(base_size = 16)
+```
+
+## Recall by rating tier
+
+```{r}
+#| code-fold: true
+#| fig-width: 9
+#| fig-height: 4.3
+#| out-width: 90%
+cv_summary |>
+  select(model, all_of(recalls)) |>
+  pivot_longer(-model, names_to = "tier", values_to = "recall") |>
+  mutate(
+    tier  = factor(tiers[match(tier, recalls)], levels = tiers),
+    model = factor(model, levels = model_order)
+  ) |>
+  ggplot(aes(tier, recall, fill = model)) +
+  geom_col(position = position_dodge(width = 0.85), width = 0.8) +
+  scale_fill_brewer(palette = "Set2", name = NULL) +
+  scale_y_continuous(limits = c(0, 1)) +
+  labs(x = NULL, y = "Mean recall across folds") +
+  theme_minimal(base_size = 16) +
+  theme(legend.position = "bottom")
+```
+
+## Summary of CV comparison
+
+- **Highest mean Macro F1:** `r models_only$model[1]` (`r sprintf("%.2f", models_only$Macro_F1[1])`), compared with `r sprintf("%.2f", base_f1)` for the majority baseline.
+- **Margin over the runner-up (`r models_only$model[2]`):** `r sprintf("%.2f", models_only$Macro_F1[1] - models_only$Macro_F1[2])`, against a fold SD of about `r sprintf("%.2f", models_only$sd_f1[1])`, so the gap is `r if (models_only$Macro_F1[1] - models_only$Macro_F1[2] < models_only$sd_f1[1]) "within" else "larger than"` fold-to-fold noise.
+- **Below NQS recall** ranges from `r sprintf("%.2f", min(models_only$Recall_Below.NQS))` (`r models_only$model[which.min(models_only$Recall_Below.NQS)]`) to `r sprintf("%.2f", max(models_only$Recall_Below.NQS))` (`r models_only$model[which.max(models_only$Recall_Below.NQS)]`) across the five models.
