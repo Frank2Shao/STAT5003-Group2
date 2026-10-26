@@ -2,10 +2,20 @@
 
 ### Limits on our conclusions
 
-- **Class imbalance:** Minority-class detection involves missed cases and false alarms. Overall accuracy is insufficient.
-- **Data quality:** Approval age is an imperfect proxy for experience. Capacity is missing for all Family Day Care services.
-- **Validation scope:** Grouped CV does not establish future performance. Earlier full-data EDA limits holdout independence.
+- **Minority-class errors:** KNN detected only **4.4%** of Below NQS services in pooled cross-validation predictions.
+- **Validation scope:** Provider grouping does not establish future performance. Full-data EDA limits holdout independence.
 
 ### What we learned and would change
 
-- **DIP shaped evaluation:** EDA supported Macro-F1 and provider grouping. Next time, reserve evaluation data before EDA and validate on a later snapshot, including checks by service type.
+- **DIP shaped evaluation:** EDA findings supported Macro-F1 and validation that keeps providers separate.
+- **Next steps:** Reserve evaluation data before EDA, validate on a later snapshot and weigh missed cases against false alarms.
+
+::: {.notes}
+A key limitation is identifying Below NQS services. In pooled cross-validation predictions, KNN detected only 4.4% of these services. LDA detected more, but its low precision meant many false alarms. This shows why accuracy alone is insufficient. Provider grouping separates providers, but it does not establish future performance. Also, our A1 exploration used the full labelled dataset. The Data Investigation Process helped connect EDA findings to Macro-F1 and grouped validation. Next time, we would reserve evaluation data before EDA, validate on a later snapshot, and explicitly weigh missed cases against false alarms.
+
+Evidence from STAT5003-Group2-main (1).zip: outputs/knn/class_metrics.csv, Below NQS pooled OOF recall = 0.04429133858267716. outputs/lda/LDA_class_metrics.csv, CV (out-of-fold), Below NQS recall = 0.5255905511811023 and precision = 0.13723978411719354. These are pooled out-of-fold values, not held-out test results or averages of fold metrics. The KNN mean-fold recall in kernel_comparison.csv is a different aggregation and is not the source of the 4.4% figure.
+
+Shared evaluation source: R/06_model_setup.R specifies provider-aware train/test splitting and five-fold provider-grouped validation. A1 numerical EDA explicitly states that exploration used the full labelled snapshot. Grouping addresses overlap of providers, but does not undo prior full-data exploration. No later-snapshot evaluation was found in the supplied archive. No final five-model ranking or selected-model test conclusion is claimed here.
+
+Template: SOLES reveal.js Quarto template, https://github.com/usyd-soles-edu/soles-revealjs.
+:::
