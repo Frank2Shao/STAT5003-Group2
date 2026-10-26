@@ -1,0 +1,54 @@
+---
+title: "MLR Model Presentation"
+format:
+  revealjs:
+    theme: default
+    slide-number: true
+    transition: slide
+    title-slide: false
+---
+
+
+## Interpretation & Stakeholder Insights
+
+:::: {.columns}
+
+::: {.column width="50%"}
+
+### Model Interpretation
+
+**Above vs Meeting NQS**
+
+- Older services and providers show positive coefficient differences.
+- Standalone preschool status is also positively associated.
+
+**Below vs Meeting NQS**
+
+- Service conditions show a positive coefficient difference.
+
+:::
+
+::: {.column width="50%"}
+
+### Stakeholder Insights
+
+**Regulators**
+
+- Explore predictive patterns to support review planning.
+
+**Service Providers**
+
+- Inform quality-improvement discussions.
+
+**Decision-makers**
+
+- Use model predictions as supporting evidence, not definitive assessments.
+
+:::
+
+::::
+
+::: {.callout-warning}
+**Caution:** Below NQS recall was only 10.2% in
+cross-validation. Associations are not causal.
+:::
