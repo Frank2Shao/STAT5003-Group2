@@ -130,7 +130,7 @@ baseline <- data.frame(
   obs  = test_model_data$rating_tier,
   pred = factor(majority, levels = lda_tier_levels)[rep(1, nrow(test_model_data))]
 )
-print(macro_f1_summary(baseline, lev = lda_tier_levels)[c("Macro_F1", "Accuracy")])
+print(macro_f1_summary(baseline, lev = lda_tier_levels))
 
 ## Per-class precision / recall / F1 
 lda_per_class <- function(cm, split) {
@@ -147,21 +147,26 @@ lda_class_metrics <- bind_rows(
 print(lda_class_metrics)
 write_csv(lda_class_metrics, "outputs/lda/LDA_class_metrics.csv")
 
-## Ordinal view: quadratic weighted kappa and how far off errors are
-lda_qw_kappa <- function(obs, pred) {
-  k <- nlevels(obs)
-  O <- table(obs, pred); O <- O / sum(O)
-  E <- outer(rowSums(O), colSums(O))
-  W <- outer(seq_len(k), seq_len(k), function(i, j) (i - j)^2 / (k - 1)^2)
-  1 - sum(W * O) / sum(W * E)
+## Baseline vs LDA
+fold_baseline <- function(rows) {
+  d <- data.frame(
+    obs  = training_model_data$rating_tier[rows],
+    pred = factor(majority, levels = lda_tier_levels)[1][rep(1, length(rows))]
+  )
+  as.data.frame(t(macro_f1_summary(d, lev = lda_tier_levels)))
 }
 
-cat("\nQuadratic weighted kappa  CV:  ", round(lda_qw_kappa(lda_oof_df$obs,  lda_oof_df$pred),  2),
-    "\nQuadratic weighted kappa  Test:", round(lda_qw_kappa(lda_test_df$obs, lda_test_df$pred), 2), "\n")
+lda_vs_baseline <- bind_rows(
+  `Majority baseline`    = colMeans(bind_rows(lapply(cv_index_out, fold_baseline))),
+  `LDA (empirical)`      = unlist(lda_fit_emp$results[lda_fit_emp$results$dimen == lda_fit_emp$bestTune$dimen, ]),
+  `LDA (equal priors)`   = unlist(lda_fit_equal$results[lda_fit_equal$results$dimen == lda_fit_equal$bestTune$dimen, ]),
+  .id = "model"
+) |>
+  dplyr::select(model, Macro_F1, Accuracy, starts_with("Recall_")) |>
+  tidyr::pivot_longer(-model, names_to = "metric") |>
+  tidyr::pivot_wider(names_from = model)
 
-lda_tier_distance <- abs(as.integer(lda_test_df$obs) - as.integer(lda_test_df$pred))
-cat("\nTest error distance (0 = correct, 1 = adjacent tier, 2 = Below<->Above):\n")
-print(round(100 * prop.table(table(lda_tier_distance)), 1))
+print(lda_vs_baseline)
 
 ## Provider-level bootstrap CI for test Macro F1 
 stopifnot(nrow(test_data) == nrow(test_model_data))
