@@ -1,0 +1,63 @@
+## KNN: learning from similar services {#knn-method .knn-slide}
+
+::: {.columns}
+::: {.column width="39%"}
+
+### How it works
+
+Find services with similar profiles, then let their rating tiers vote.
+
+- Standardise numerical features so units do not dominate distance.
+- Keep each provider's services together in all five validation folds.
+- Compare 10 neighbour counts and two voting rules.
+
+**Selected: 5 neighbours, equal voting**
+
+:::
+::: {.column width="61%"}
+
+![](images/knn_tuning_slides.png){fig-alt="Mean five-fold Macro-F1 for all 20 KNN configurations. Equal voting with five neighbours has the highest score, 0.425." width=100%}
+
+::: {.knn-caption}
+Macro-F1 gives each rating tier equal weight. Meeting NQS accounts for 74.3% of labelled services in A1.
+
+Figure redrawn from the same cross-validation results as the report (cv_summary.csv).
+:::
+
+:::
+:::
+
+
+## KNN improves Macro-F1 but misses most Below NQS services {#knn-results .knn-slide}
+
+::: {.columns}
+::: {.column width="43%"}
+
+### Performance against the baseline
+
+| Mean across five folds | Majority baseline | KNN |
+|:---|---:|---:|
+| Macro-F1 | 0.283 | **0.425** |
+| Accuracy | 73.72% | 72.24% |
+
+The baseline always predicts Meeting NQS.
+
+**Only 45 of 1,016 Below NQS services were identified.**
+
+KNN offers limited support for identifying services below the standard.
+
+:::
+::: {.column width="57%"}
+
+![](images/knn_recall_slides.png){fig-alt="Recall from pooled out-of-fold predictions: Below NQS 4.4 percent, Meeting NQS 89.7 percent, Above NQS 31.0 percent." width=100%}
+
+:::
+:::
+
+::: {.knn-caption}
+Training-set cross-validation only. Tuning and evaluation share the same folds, so estimates may be optimistic. The held-out test set remains unused by this KNN contribution.
+
+Recall chart redrawn from the report's pooled out-of-fold confusion matrix (class_metrics.csv; confusion_matrix.csv).
+:::
+
+

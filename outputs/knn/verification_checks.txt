@@ -1,0 +1,6 @@
+PASS: five provider-grouped folds and disjoint provider validation assignments.
+PASS: fold summaries, selected parameters, pooled class metrics and confusion counts agree.
+PASS: saved model exists; k/kernel match selection; Euclidean distance=2 and scale=FALSE.
+PASS: HTML includes two embedded PNG figures and the kernel comparison table.
+PASS: reserved test script parsed only, not executed by this verification script.
+10 original CSV files reproduced within tolerance 1e-12.

@@ -1,0 +1,124 @@
+## Preprocessing and Grouped Evaluation {.preprocess-eval}
+
+<style>
+.reveal .preprocess-eval .columns {
+  align-items: stretch;
+  gap: 1.2em;
+}
+
+.reveal .preprocess-eval .column {
+  font-size: 0.82em;
+}
+
+.reveal .preprocess-eval h3 {
+  margin-top: 0;
+  margin-bottom: 0.45em;
+}
+
+.reveal .preprocess-eval .workflow-step {
+  background: #f5f7fa;
+  border-left: 5px solid #245680;
+  border-radius: 6px;
+  margin-bottom: 0.45em;
+  padding: 0.38em 0.55em;
+}
+
+.reveal .preprocess-eval .evaluation-step {
+  background: #f5f7fa;
+  border-left: 5px solid #e5486d;
+  border-radius: 6px;
+  margin-bottom: 0.45em;
+  padding: 0.38em 0.55em;
+}
+
+.reveal .preprocess-eval .workflow-step p,
+.reveal .preprocess-eval .evaluation-step p {
+  margin: 0;
+}
+
+.reveal .preprocess-eval .fold-rule {
+  background: #eaf2f9;
+  border-radius: 6px;
+  color: #183f64;
+  font-size: 0.78em;
+  margin-top: 0.55em;
+  padding: 0.4em 0.65em;
+  text-align: center;
+}
+</style>
+
+:::: {.columns}
+
+::: {.column width="49%"}
+
+### Preprocessing
+
+::: {.workflow-step}
+**Leakage control**
+
+Excluded identifiers and rating-derived predictors.
+:::
+
+::: {.workflow-step}
+**Data handling**
+
+Handled unknown, novel and rare categorical levels; median-imputed numeric missingness.
+:::
+
+::: {.workflow-step}
+**Transformation**
+
+Applied $\log(x+1)$ to provider service count.
+:::
+
+::: {.workflow-step}
+**Model-specific recipes**
+
+Scaled recipe: normalization, dummy encoding and NZV removal.
+
+Tree recipe: dummy encoding and NZV removal without normalization.
+:::
+
+:::
+
+::: {.column width="49%"}
+
+### Grouped evaluation
+
+::: {.evaluation-step}
+**80/20 grouped split**
+
+Services from the same provider remained in one partition.
+:::
+
+::: {.evaluation-step}
+**Five-fold grouped cross-validation**
+
+No provider crossed the analysis and validation sets; all models used the same folds.
+:::
+
+::: {.evaluation-step}
+**Evaluation metrics**
+
+Primary: **Macro-F1**
+
+Secondary: accuracy and class-specific recall.
+:::
+
+::: {.evaluation-step}
+**Final evaluation**
+
+The held-out test set was reserved until model selection.
+:::
+
+:::
+
+::::
+
+::: {.fold-rule}
+**Fold-wise rule:** preprocessing parameters were estimated from training data only.
+:::
+
+::: {.notes}
+We used a shared preprocessing and evaluation workflow for all five models. Identifiers and rating-derived variables were excluded, while missing values, categorical levels and model-specific scaling were handled through recipes. Because one provider may operate several services, we performed both the 80/20 split and five-fold cross-validation at provider level. Macro-F1 was the primary metric because the rating tiers were strongly imbalanced, and the held-out test set was reserved for final evaluation.
+:::
