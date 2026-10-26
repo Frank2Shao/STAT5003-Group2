@@ -1,0 +1,47 @@
+
+---
+title: "MLR Model Presentation"
+format:
+  revealjs:
+    theme: default
+    slide-number: true
+    transition: slide
+    title-slide: false
+---
+## MLR: Implementation & Tuning
+
+**Purpose**
+
+- Interpretable linear baseline for three-class NQS prediction
+- Ridge-regularised multinomial regression (`glmnet`)
+
+**Model Development**
+
+- Fold-wise imputation, dummy encoding and standardisation
+- 5-fold provider-grouped cross-validation
+- Macro-F1 used for model selection
+
+**Hyperparameter Tuning**
+
+- 6 regularisation penalties × 3 class-weighting strategies
+- Best penalty: **λ = 0.003**
+- Best weighting: **Square-root inverse-frequency**
+
+## MLR: Cross-validation Results
+
+| Metric | Baseline | Tuned MLR |
+|:---|---:|---:|
+| Macro-F1 | 0.4003 | **0.4859** |
+| Accuracy | 75.47% | 72.92% |
+| Below NQS Recall | 0.0% | **10.2%** |
+
+**Key Findings**
+
+- Macro-F1 increased by **21.4%** relative to baseline.
+- Moderate class weighting improved minority-class recall.
+- Below NQS remains challenging to identify.
+
+::: {.callout-note}
+Results are from five-fold provider-grouped
+cross-validation, not the held-out test set.
+:::
