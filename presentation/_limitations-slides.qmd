@@ -2,12 +2,13 @@
 
 ### Limits on our conclusions
 
-- **Minority-class errors:** KNN detected only **4.4%** of Below NQS services in pooled cross-validation predictions.
-- **Validation scope:** Provider grouping does not establish future performance. Full-data EDA limits holdout independence.
+- **Class imbalance:** Minority-class detection involves missed cases and false alarms. Overall accuracy is insufficient.
+- **Data quality:** Approval age is an imperfect proxy for experience. Capacity is missing for all Family Day Care services.
+- **Validation scope:** Grouped CV does not establish future performance. Earlier full-data EDA limits holdout independence.
 
 ### What we learned and would change
 
-- **DIP shaped evaluation:** EDA findings supported Macro-F1 and validation that keeps providers separate.
-- **Next steps:** Reserve evaluation data before EDA, validate on a later snapshot and weigh missed cases against false alarms.
+- **DIP shaped evaluation:** EDA supported Macro-F1 and provider grouping.
+- **Next steps:** Reserve evaluation data before EDA, validate on a later snapshot and check performance by service type.
 
 
