@@ -1,0 +1,9 @@
+mtry,min_node_size,weighting,candidate,num_trees
+5,5,uniform,1,500
+12,5,uniform,2,500
+5,20,uniform,3,500
+12,20,uniform,4,500
+5,5,balanced,5,500
+12,5,balanced,6,500
+5,20,balanced,7,500
+12,20,balanced,8,500
