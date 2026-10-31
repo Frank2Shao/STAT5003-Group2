@@ -66,7 +66,8 @@ lda_prior_comparison <- bind_rows(
   lda_fit_emp$results   |> mutate(priors = "Empirical"),
   lda_fit_equal$results |> mutate(priors = "Equal")
 ) %>%
-  select(priors, dimen, Macro_F1, Accuracy, starts_with("Recall_"))
+  select(priors, dimen, Macro_F1, Accuracy, starts_with("Recall_")) |>
+  mutate(across(c(Macro_F1, Accuracy, starts_with("Recall_")), ~ round(.x,2)))
 
 print(lda_prior_comparison)
 
@@ -185,7 +186,7 @@ lda.metric.plot <- lda_class_metrics %>%
 # Saved outputs
 write_csv(lda_class_metrics,         "outputs/lda/lda_class_metrics.csv")
 write_csv(lda_fit_equal$resample,    "outputs/lda/lda_cv_fold_metrics.csv")
-ggsave("figures/lda_train_cm.png",      lda.train.plot,  width = 6, height = 6, dpi = 220)
-ggsave("figures/lda_class_metrics.png", lda.metric.plot, width = 6, height = 4, dpi = 220)
+ggsave("figures/lda_train_cm.png",      lda.train.plot,  width = 8, height = 8, dpi = 220)
+ggsave("figures/lda_class_metrics.png", lda.metric.plot, width = 8, height = 6, dpi = 220)
 
 message("Completed.")

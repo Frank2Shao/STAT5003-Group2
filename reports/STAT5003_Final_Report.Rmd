@@ -4,7 +4,17 @@ author: "Your group number"
 output:
   html_document:
     code_folding: hide 
+    toc: false
 ---
+
+```{r}
+library(readr)
+library(dplyr)
+library(caret)
+library(recipes)
+library(ggplot2)
+```
+
 
 # Introduction
 
@@ -47,7 +57,60 @@ ggplot(mtcars, aes(x = wt, y = mpg)) +
 
 # Model Fitting & Improvement
 
-## LDA
+## Linear Discriminant Analysis
+
+### Preprocessing
+
+In addition to the shared `scaled_recipe`, the recipe used for Linear Discriminant Analysis (LDA) also further remove linear dependencies among numeric predictors and dropped predictors correlated above a `0.9` threshold.
+
+```{r}
+lda_recipe <- scaled_recipe |> # Additional pre-processing
+  step_lincomb(all_numeric_predictors()) |>
+  step_corr(all_numeric_predictors(), threshold = 0.9)
+```
+
+
+### Models
+
+Two models of LDA were trained, one using the unchanged training set's class proportion (`lda_fit_emp`) and one using equal class priors to account for the class imbalance of the dataset (`lda_fit_equal`).
+
+For both models, we also performed parameter tuning on `dimen` --- the number of discriminant functions produced. This is limited by the number of classes, resulting in only 2 possible tuning values.
+
+```{r}
+lda_fit_equal <- train(
+  lda_recipe,
+  data = training_model_data,
+  trControl = model_control,
+  method = "lda2",
+  metric = "Macro_F1",
+  tuneGrid = expand.grid(dimen = 1:2),
+  prior = rep(1/3, 3) # Equal class priors
+)
+
+lda_fit_emp <- train(
+  lda_recipe,
+  data = training_model_data,
+  trControl = model_control,
+  method = "lda2",
+  metric = "Macro_F1",
+  tuneGrid = expand.grid(dimen = 1:2) # Empirical priors (training class proportions)
+)
+```
+
+Only one LDA model is included in the final model selection. Due to similar Macro F1 score for both models, `lda_fit_equal` was chosen due to its better Recall score for `Below NQS`
+
+```{r}
+lda_prior_comparison <- bind_rows(
+  lda_fit_emp$results   |> mutate(priors = "Empirical"),
+  lda_fit_equal$results |> mutate(priors = "Equal")
+) %>%
+  select(priors, dimen, Macro_F1, Accuracy, starts_with("Recall_"))
+
+lda_prior_comparison |> 
+  mutate(across(c(Macro_F1, Accuracy, starts_with("Recall_")), ~ round(.x,2))) |>
+  select(1:7) |> arrange(dimen) |>
+  print()
+```
 
 ## kNN
 
@@ -58,6 +121,10 @@ ggplot(mtcars, aes(x = wt, y = mpg)) +
 ## Linear SVM
 
 # Model Evaluation & Selection
+
+## Summary of Key Findings of Models
+
+## Final Model Selection
 
 # Final Results & Conclusion
 
