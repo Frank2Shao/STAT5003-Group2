@@ -1428,13 +1428,12 @@ cat(
 # This was only a provisional selection because C had not yet been
 # evaluated for the RBF kernel. The provisional diagnostics originally
 # placed in this phase were subsequently discarded after Phase 9
-# examined additional C values and selected C = 0.5.
+# examined additional C values before final selection in Phase 10.
 #
 # Final out-of-fold diagnostics and the Linear-RBF comparison are
-# therefore calculated only once in Phase 10 using the final targeted
-# configuration:
-#   sigma = 0.015625
-#   C = 0.5
+# therefore calculated only once in Phase 10. Sigma remains fixed at
+# 0.015625, while C is selected from the extended sensitivity results
+# according to the highest mean cross-validated Macro-F1.
 
 selected_rbf_sigma <- 0.015625
 
@@ -1541,6 +1540,71 @@ print(svm_rbf_C_2$results)
 cat("\nElapsed time:\n")
 print(svm_rbf_C_2_time)
 
+# Further extended upper-bound C candidate at the selected RBF sigma.
+# Only C changes; preprocessing, folds, weights and sigma remain fixed.
+
+set.seed(5024L)
+
+svm_rbf_C_8_time <- system.time({
+  svm_rbf_C_8 <- train(
+    scaled_recipe,
+    data = training_model_data,
+    method = "svmRadial",
+    trControl = coarse_control_verbose,
+    tuneGrid = data.frame(
+      sigma = selected_rbf_sigma,
+      C = 8
+    ),
+    metric = "Macro_F1",
+    maximize = TRUE,
+    class.weights = svm_class_weights
+  )
+})
+
+cat(
+  "\nWeighted RBF SVM extended C candidate completed.",
+  "\nC:", 8,
+  "\nsigma:", selected_rbf_sigma,
+  "\n\nCross-validation results:\n"
+)
+
+print(svm_rbf_C_8$results)
+
+cat("\nElapsed time:\n")
+print(svm_rbf_C_8_time)
+
+# Further extended upper-bound C candidate at the selected RBF sigma.
+# This checks whether performance continues to improve beyond C = 8.
+
+set.seed(5025L)
+
+svm_rbf_C_32_time <- system.time({
+  svm_rbf_C_32 <- train(
+    scaled_recipe,
+    data = training_model_data,
+    method = "svmRadial",
+    trControl = coarse_control_verbose,
+    tuneGrid = data.frame(
+      sigma = selected_rbf_sigma,
+      C = 32
+    ),
+    metric = "Macro_F1",
+    maximize = TRUE,
+    class.weights = svm_class_weights
+  )
+})
+
+cat(
+  "\nWeighted RBF SVM extended C candidate completed.",
+  "\nC:", 32,
+  "\nsigma:", selected_rbf_sigma,
+  "\n\nCross-validation results:\n"
+)
+
+print(svm_rbf_C_32$results)
+
+cat("\nElapsed time:\n")
+print(svm_rbf_C_32_time)
 
 # -------------------------------------------------------------------
 # Phase 10: final targeted RBF selection and diagnostics
@@ -1548,11 +1612,10 @@ print(svm_rbf_C_2_time)
 
 # Final RBF configuration selected by mean cross-validated Macro-F1.
 
-selected_rbf_C <- 0.5
 selected_rbf_sigma <- 0.015625
-selected_rbf_model <- svm_rbf_C_05
 
-# Combine all six unique RBF candidates.
+# Combine all 8 unique RBF candidates.
+
 
 rbf_result_columns <- c(
   "sigma",
@@ -1571,6 +1634,8 @@ svm_rbf_targeted_results <- rbind(
   svm_rbf_sigma_0015625$results[, rbf_result_columns],
   svm_rbf_C_05$results[, rbf_result_columns],
   svm_rbf_C_2$results[, rbf_result_columns],
+  svm_rbf_C_8$results[, rbf_result_columns],
+  svm_rbf_C_32$results[, rbf_result_columns],
   svm_rbf_pilot$results[, rbf_result_columns],
   svm_rbf_sigma_00625$results[, rbf_result_columns]
 )
@@ -1584,6 +1649,36 @@ svm_rbf_targeted_results <-
   ]
 
 rownames(svm_rbf_targeted_results) <- NULL
+
+rbf_C_candidate_values <- c(
+  0.03125,
+  0.125,
+  0.5,
+  2,
+  8,
+  32
+)
+
+rbf_C_candidate_models <- list(
+  svm_rbf_C_003125,
+  svm_rbf_sigma_0015625,
+  svm_rbf_C_05,
+  svm_rbf_C_2,
+  svm_rbf_C_8,
+  svm_rbf_C_32
+)
+
+rbf_C_candidate_results <- svm_rbf_targeted_results[
+  svm_rbf_targeted_results$sigma == selected_rbf_sigma,
+]
+
+selected_rbf_C <- rbf_C_candidate_results$C[
+  which.max(rbf_C_candidate_results$Macro_F1)
+]
+
+selected_rbf_model <- rbf_C_candidate_models[[
+  match(selected_rbf_C, rbf_C_candidate_values)
+]]
 
 svm_rbf_targeted_results$search_role <- ifelse(
   svm_rbf_targeted_results$sigma == 0.015625 &
@@ -1609,11 +1704,11 @@ rbf_parameter_pairs <- paste(
 )
 
 stopifnot(
-  nrow(svm_rbf_targeted_results) == 6L,
+  nrow(svm_rbf_targeted_results) == 8L,
   !anyDuplicated(rbf_parameter_pairs),
   nrow(rbf_selected_result) == 1L,
   rbf_selected_result$Macro_F1 ==
-    max(svm_rbf_targeted_results$Macro_F1)
+    max(rbf_C_candidate_results$Macro_F1)
 )
 
 cat("\nFinal targeted RBF results:\n")
@@ -1850,15 +1945,18 @@ svm_rbf_timing <- data.frame(
     0.015625,
     0.015625,
     0.015625,
+    0.015625,
     0.03125,
     0.0625
   ),
   C = c(
+    0.015625,
     0.03125,
     0.125,
     0.5,
     2,
-    0.125,
+    8,
+    32,
     0.125
   ),
   user_seconds = c(
@@ -1866,6 +1964,8 @@ svm_rbf_timing <- data.frame(
     unname(svm_rbf_sigma_0015625_time["user.self"]),
     unname(svm_rbf_C_05_time["user.self"]),
     unname(svm_rbf_C_2_time["user.self"]),
+    unname(svm_rbf_C_8_time["user.self"]),
+    unname(svm_rbf_C_32_time["user.self"]),
     unname(svm_rbf_pilot_time["user.self"]),
     unname(svm_rbf_sigma_00625_time["user.self"])
   ),
@@ -1874,6 +1974,8 @@ svm_rbf_timing <- data.frame(
     unname(svm_rbf_sigma_0015625_time["sys.self"]),
     unname(svm_rbf_C_05_time["sys.self"]),
     unname(svm_rbf_C_2_time["sys.self"]),
+    unname(svm_rbf_C_8_time["sys.self"]),
+    unname(svm_rbf_C_32_time["sys.self"]),
     unname(svm_rbf_pilot_time["sys.self"]),
     unname(svm_rbf_sigma_00625_time["sys.self"])
   ),
@@ -1882,6 +1984,8 @@ svm_rbf_timing <- data.frame(
     unname(svm_rbf_sigma_0015625_time["elapsed"]),
     unname(svm_rbf_C_05_time["elapsed"]),
     unname(svm_rbf_C_2_time["elapsed"]),
+    unname(svm_rbf_C_8_time["elapsed"]),
+    unname(svm_rbf_C_32_time["elapsed"]),
     unname(svm_rbf_pilot_time["elapsed"]),
     unname(svm_rbf_sigma_00625_time["elapsed"])
   )

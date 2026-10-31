@@ -14,7 +14,7 @@ The corrected run has zero provider overlap between training and test, and exact
 |:---|---:|---:|---:|
 | MLR, shared split | 0.4871 | 0.0180 | 72.55% |
 | Random Forest | 0.4825 | 0.0265 | 63.02% |
-| SVM (RBF) | 0.4661 | 0.0242 | 73.05% |
+| SVM (RBF) | 0.4696 | 0.0149 | 70.95% |
 | LDA | 0.4364 | 0.0189 | 51.06% |
 | KNN | 0.4246 | 0.0247 | 72.24% |
 
