@@ -1,0 +1,72 @@
+---
+title: "STAT5003 Assignment Title"
+author: "Your group number"
+output:
+  html_document:
+    code_folding: hide 
+---
+
+# Introduction
+
+
+
+# Problem Framing & Research Question
+
+## Subsection (for example)
+
+
+```{r}
+# R code....
+
+```
+
+# Dataset & Justification
+
+
+```{r} 
+# R code...
+```
+
+# Exploratory Data Analysis (EDA)
+
+Useful numerical and graphical outputs should be shown in the report. 
+
+
+```{r} 
+library(ggplot2)
+
+ggplot(mtcars, aes(x = wt, y = mpg)) +
+  geom_point(aes(color = cyl)) +
+  geom_smooth(method = "lm", formula = y ~ x) +
+  labs(title = "MPG vs. Weight",
+       x = "Weight (1000 lbs)",
+       y = "Miles per Gallon")
+```
+
+# Data Preprocessing
+
+# Model Fitting & Improvement
+
+## LDA
+
+## kNN
+
+## MLR
+
+## Random Forest
+
+## Linear SVM
+
+# Model Evaluation & Selection
+
+# Final Results & Conclusion
+
+
+# References
+
+List all the references used throughout the report using APA7 Style.
+
+# AI Use Statment
+If applicable,
+
+I acknowledge the use of [AI tool + version, publisher and URL] to generate [summary of what was generated].
