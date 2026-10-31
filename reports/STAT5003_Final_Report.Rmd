@@ -8,42 +8,87 @@ output:
 
 # Introduction
 
+Australian education and care services are assessed and rated against the National Quality Standard (NQS) under the National Quality Framework. The NQS provides a nationally consistent framework for assessing service quality and supporting continuous improvement (Australian Children’s Education & Care Quality Authority, n.d.; https://www.acecqa.gov.au/assessment/assessment-and-rating-process). In addition to recorded ratings, the Australian Children’s Education & Care Quality Authority (ACECQA) publishes national registers containing administrative information about services and approved providers (Australian Children’s Education & Care Quality Authority, n.d.; https://www.acecqa.gov.au/resources/national-registers).
 
+Against this background, this project examines the predictive information contained in these publicly available administrative records. Understanding whether routinely recorded characteristics are associated with NQS outcomes may support regulatory planning, service-level quality discussions and policy research. The project therefore evaluates the potential and limitations of using administrative information to support the classification of recorded NQS outcomes.
 
-# Problem Framing & Research Question
+# Problem Framing
 
-## Subsection (for example)
+This study frames the prediction of recorded NQS outcomes as a service-level multi-class classification problem. Each observation represents an Australian education and care service, and the outcome is its recorded overall NQS rating, consolidated into three tiers: Below NQS, Meeting NQS and Above NQS. The objective is to assess whether non-rating administrative characteristics collectively contain sufficient information to distinguish between these tiers.
 
+The task is predictive and associational. Administrative characteristics provide only a partial representation of a service and do not reproduce the evidence considered during the formal NQS assessment process. Consequently, model predictions should not be interpreted as definitive assessments of service quality or as evidence that particular characteristics cause a service to receive a higher or lower rating. Their intended role is to provide supporting evidence for further investigation and decision-making.
 
-```{r}
-# R code....
+# Research Question
 
-```
+The research question is: To what extent can service type, service capacity, operating patterns, geographic location, and provider characteristics be used to classify an Australian education and care service’s recorded NQS rating tier as Below NQS, Meeting NQS, or Above NQS?
+
 
 # Dataset & Justification
 
+This project used two national registers published by the Australian Children’s Education & Care Quality Authority (ACECQA): the Education services register and the Approved providers register (Australian Children’s Education & Care Quality Authority, n.d.; https://www.acecqa.gov.au/resources/national-registers). The services register contained 18,183 service records and 98 variables, including basic service information, operating hours and NQS ratings. The providers register contained 10,095 provider records and 10 variables, including provider names, locations, approval dates and conditions. The services dataset had more than 10,000 observations, meeting the Large dataset requirement. Some rating, capacity and operating-schedule information was missing, so the data also met the Messy dataset requirement. The missing-value patterns are discussed in the EDA section.
 
-```{r} 
-# R code...
-```
+The service was used as the unit of analysis, and the services register was the main dataset. The two registers were linked using Provider Approval Number, so provider information could be added to each service record. This use of two linked datasets met the Integrated dataset requirement. Checks showed that the service and provider IDs were not duplicated in their own datasets, and every service record was matched to a provider. After removing 1,023 services without a recorded overall rating, the final dataset contained 17,160 services from 6,885 providers. It included two ID variables used for checking records, one outcome variable and 28 service and provider characteristics. The original NQS ratings were grouped into three classes. Significant Improvement Required and Working Towards NQS were grouped as Below NQS; Meeting NQS remained unchanged; and Exceeding NQS and Excellent were grouped as Above NQS. The outcome therefore had three rating tiers and met the Multi-class classification requirement.
 
 # Exploratory Data Analysis (EDA)
 
-Useful numerical and graphical outputs should be shown in the report. 
+## NQS Rating Distribution and Missing Values
+The three rating tiers had very different sizes. Among the 17,160 services, 1,264 (7.4%) were Below NQS, 12,748 (74.3%) were Meeting NQS, and 3,148 (18.3%) were Above NQS. Most services were in the Meeting NQS group, while the Below NQS group was much smaller. This shows a clear class imbalance in the outcome.
 
+The amount of missing data also differed across variables. Annual, school-term and holiday-care weekly hours had missing rates of 39.1%, 55.0% and 72.3%, respectively. These missing values may be related to whether a service offered the relevant operating schedule. For example, a service without holiday care would normally have no holiday-care hours. Approved capacity was missing for 307 services, and all of them were Family Day Care services. max_weekly_hours was missing for 142 services. All recorded weekly hours were within the possible limit of 168 hours per week.
 
-```{r} 
-library(ggplot2)
+Suggested Figure 1: rating-tier distribution and missingness of selected variables shown side by side.
 
-ggplot(mtcars, aes(x = wt, y = mpg)) +
-  geom_point(aes(color = cyl)) +
-  geom_smooth(method = "lm", formula = y ~ x) +
-  labs(title = "MPG vs. Weight",
-       x = "Weight (1000 lbs)",
-       y = "Miles per Gallon")
-```
+## Categorical Variables
+
+Some categorical variables were highly imbalanced. Centre-Based Care represented 98.2% of all services, while there were only 307 Family Day Care services. Variables such as temporarily_closed, other_service and some approval-condition variables were also mainly concentrated in one category. Most services were located in NSW, VIC or QLD.
+
+Standalone preschool, OSHC services, operating pattern and state showed the clearest relationships with rating tier. Standalone preschools and services that did not offer OSHC had a higher proportion of Above NQS ratings. However, there was still substantial overlap between the groups. No single categorical variable could clearly separate the three rating tiers.
+
+Some categorical variables also contained similar information. The after-school care, before-school care and vacation-care variables were strongly related to each other. Operating pattern was also related to long day care and the OSHC variables. In addition, service state and provider state were often the same, so these two variables provided similar geographic information.
+
+Suggested Figure 2: relationships between selected categorical variables and rating tier, together with a plot showing relationships among the categorical variables.
+
+## Numerical and Operating Variables
+
+The numerical variables showed some differences between rating tiers, but their distributions still overlapped. The median approved capacity was 60 places for Below NQS, 64 for Meeting NQS and 54 for Above NQS. Above NQS services had a lower median capacity, but the difference was not large enough to separate the rating tiers.
+
+Service age and provider age also showed some differences. Above NQS services generally had older services and providers, but there was still considerable overlap between the three groups. Provider service count was strongly right-skewed. The median provider operated seven registered services, while the largest provider operated 611. The median counts for Below NQS, Meeting NQS and Above NQS were 2, 8 and 4, respectively, so there was no consistent increasing or decreasing pattern across the rating tiers.
+
+The differences in operating hours were also limited. The median maximum weekly hours were 55 for Below NQS, 55 for Meeting NQS and 50 for Above NQS. Operating hours also differed between service types, so the overall pattern may hide some differences between Centre-Based Care and Family Day Care. There were only 307 Family Day Care services, including 18 Above NQS services, so comparisons within this group were less reliable. Weekly open days had little variation because 92.4% of services were open for five days per week.
+
+Suggested Figure 3: numerical variables by rating tier and weekly operating hours by rating tier and service type.
+
+Overall, the data showed clear class imbalance, structural missingness, skewed numerical variables and overlapping information between some predictors. Service offerings, operating patterns, location, capacity and approval age were related to rating tier, but the differences were not strong. No single predictor clearly separated Below NQS, Meeting NQS and Above NQS services.
 
 # Data Preprocessing
+
+## Data Splitting and Leakage Control
+
+Before splitting the data, we completed basic feature engineering. Approval dates and operating-time records were used to create service_age_years, provider_age_years, weekly_open_days, max_weekly_hours and operating_pattern. We also calculated provider_service_count and provider_state_matches_service.
+
+Before model fitting, service_id, provider_id, the original rating and other rating-derived variables were removed. These variables could directly identify observations or reveal information about the outcome.
+
+As one provider may operate several services, the data were split at the provider level. Around 80% of the data were assigned to the training set, and the remaining 20% were assigned to the test set. The training set contained 13,497 services from 5,509 providers, while the test set contained 3,663 services from 1,376 providers. No provider appeared in both datasets. Each provider’s most common rating tier was used for approximate stratification so that the training and test sets had similar class distributions.
+
+The training set was then divided into five cross-validation folds. Services from the same provider remained in the same fold, so they could not appear in both the training and validation data within one fold. All preprocessing values were calculated from the training part of each fold and then applied to its validation data.
+
+## Missing Values and Categorical Variables
+
+Missing values in numerical variables were replaced with the median calculated from the current training data. Missing values in categorical variables were labelled as Unknown. Categories that appeared for the first time in validation or test data were labelled as Novel. Categories representing less than 1% of the training data were grouped as Other.
+
+Logical variables were converted into fixed No and Yes categories. Categorical variables were then converted into dummy variables. Predictors with no variation or very little variation were removed to reduce unnecessary model inputs.
+
+The code did not create separate missingness indicators for structural missing values. Missing numerical values were still handled using median imputation.
+
+## Model-Specific Preprocessing
+
+Different preprocessing recipes were used for different models. kNN and SVM used the shared scaled recipe. This included median imputation, categorical-level handling, a \(\log(x+1)\) transformation of provider_service_count, dummy encoding, normalisation and near-zero-variance removal.
+
+LDA used the same scaled recipe. It also removed predictors that could be written as linear combinations of other predictors and numerical predictors with correlations above 0.9.
+
+Random Forest used the tree recipe. It included missing-value handling, categorical-level handling, the \(\log(x+1)\) transformation, dummy encoding and near-zero-variance removal. Normalisation was not used because Random Forest does not depend on the scale of numerical variables.
+
+MLR used a separate preprocessing recipe with 19 selected predictors. It included median imputation, categorical-level handling, dummy encoding, zero-variance removal and normalisation. The MLR recipe did not apply the \(\log(x+1)\) transformation to provider_service_count.
 
 # Model Fitting & Improvement
 
@@ -70,3 +115,6 @@ List all the references used throughout the report using APA7 Style.
 If applicable,
 
 I acknowledge the use of [AI tool + version, publisher and URL] to generate [summary of what was generated].
+
+# Appendix
+
