@@ -1540,6 +1540,39 @@ print(svm_rbf_C_2$results)
 cat("\nElapsed time:\n")
 print(svm_rbf_C_2_time)
 
+# Intermediate upper-bound C candidate at the selected RBF sigma.
+# Only C changes; preprocessing, folds, weights and sigma remain fixed.
+
+set.seed(5026L)
+
+svm_rbf_C_4_time <- system.time({
+  svm_rbf_C_4 <- train(
+    scaled_recipe,
+    data = training_model_data,
+    method = "svmRadial",
+    trControl = coarse_control_verbose,
+    tuneGrid = data.frame(
+      sigma = selected_rbf_sigma,
+      C = 4
+    ),
+    metric = "Macro_F1",
+    maximize = TRUE,
+    class.weights = svm_class_weights
+  )
+})
+
+cat(
+  "\nWeighted RBF SVM extended C candidate completed.",
+  "\nC:", 4,
+  "\nsigma:", selected_rbf_sigma,
+  "\n\nCross-validation results:\n"
+)
+
+print(svm_rbf_C_4$results)
+
+cat("\nElapsed time:\n")
+print(svm_rbf_C_4_time)
+
 # Further extended upper-bound C candidate at the selected RBF sigma.
 # Only C changes; preprocessing, folds, weights and sigma remain fixed.
 
@@ -1573,8 +1606,41 @@ print(svm_rbf_C_8$results)
 cat("\nElapsed time:\n")
 print(svm_rbf_C_8_time)
 
+# Intermediate upper-bound C candidate at the selected RBF sigma.
+# Only C changes; preprocessing, folds, weights and sigma remain fixed.
+
+set.seed(5027L)
+
+svm_rbf_C_16_time <- system.time({
+  svm_rbf_C_16 <- train(
+    scaled_recipe,
+    data = training_model_data,
+    method = "svmRadial",
+    trControl = coarse_control_verbose,
+    tuneGrid = data.frame(
+      sigma = selected_rbf_sigma,
+      C = 16
+    ),
+    metric = "Macro_F1",
+    maximize = TRUE,
+    class.weights = svm_class_weights
+  )
+})
+
+cat(
+  "\nWeighted RBF SVM extended C candidate completed.",
+  "\nC:", 16,
+  "\nsigma:", selected_rbf_sigma,
+  "\n\nCross-validation results:\n"
+)
+
+print(svm_rbf_C_16$results)
+
+cat("\nElapsed time:\n")
+print(svm_rbf_C_16_time)
+
 # Further extended upper-bound C candidate at the selected RBF sigma.
-# This checks whether performance continues to improve beyond C = 8.
+# This checks whether performance continues to improve beyond C = 16.
 
 set.seed(5025L)
 
@@ -1614,7 +1680,7 @@ print(svm_rbf_C_32_time)
 
 selected_rbf_sigma <- 0.015625
 
-# Combine all 8 unique RBF candidates.
+# Combine all 10 unique RBF candidates.
 
 
 rbf_result_columns <- c(
@@ -1634,7 +1700,9 @@ svm_rbf_targeted_results <- rbind(
   svm_rbf_sigma_0015625$results[, rbf_result_columns],
   svm_rbf_C_05$results[, rbf_result_columns],
   svm_rbf_C_2$results[, rbf_result_columns],
+  svm_rbf_C_4$results[, rbf_result_columns],
   svm_rbf_C_8$results[, rbf_result_columns],
+  svm_rbf_C_16$results[, rbf_result_columns],
   svm_rbf_C_32$results[, rbf_result_columns],
   svm_rbf_pilot$results[, rbf_result_columns],
   svm_rbf_sigma_00625$results[, rbf_result_columns]
@@ -1655,7 +1723,9 @@ rbf_C_candidate_values <- c(
   0.125,
   0.5,
   2,
+  4,
   8,
+  16,
   32
 )
 
@@ -1664,7 +1734,9 @@ rbf_C_candidate_models <- list(
   svm_rbf_sigma_0015625,
   svm_rbf_C_05,
   svm_rbf_C_2,
+  svm_rbf_C_4,
   svm_rbf_C_8,
+  svm_rbf_C_16,
   svm_rbf_C_32
 )
 
@@ -1704,7 +1776,7 @@ rbf_parameter_pairs <- paste(
 )
 
 stopifnot(
-  nrow(svm_rbf_targeted_results) == 8L,
+  nrow(svm_rbf_targeted_results) == 10L,
   !anyDuplicated(rbf_parameter_pairs),
   nrow(rbf_selected_result) == 1L,
   rbf_selected_result$Macro_F1 ==
@@ -1947,6 +2019,8 @@ svm_rbf_timing <- data.frame(
     0.015625,
     0.015625,
     0.015625,
+    0.015625,
+    0.015625,
     0.03125,
     0.0625
   ),
@@ -1955,7 +2029,9 @@ svm_rbf_timing <- data.frame(
     0.125,
     0.5,
     2,
+    4,
     8,
+    16,
     32,
     0.125,
     0.125
@@ -1965,7 +2041,9 @@ svm_rbf_timing <- data.frame(
     unname(svm_rbf_sigma_0015625_time["user.self"]),
     unname(svm_rbf_C_05_time["user.self"]),
     unname(svm_rbf_C_2_time["user.self"]),
+    unname(svm_rbf_C_4_time["user.self"]),
     unname(svm_rbf_C_8_time["user.self"]),
+    unname(svm_rbf_C_16_time["user.self"]),
     unname(svm_rbf_C_32_time["user.self"]),
     unname(svm_rbf_pilot_time["user.self"]),
     unname(svm_rbf_sigma_00625_time["user.self"])
@@ -1975,7 +2053,9 @@ svm_rbf_timing <- data.frame(
     unname(svm_rbf_sigma_0015625_time["sys.self"]),
     unname(svm_rbf_C_05_time["sys.self"]),
     unname(svm_rbf_C_2_time["sys.self"]),
+    unname(svm_rbf_C_4_time["sys.self"]),
     unname(svm_rbf_C_8_time["sys.self"]),
+    unname(svm_rbf_C_16_time["sys.self"]),
     unname(svm_rbf_C_32_time["sys.self"]),
     unname(svm_rbf_pilot_time["sys.self"]),
     unname(svm_rbf_sigma_00625_time["sys.self"])
@@ -1985,7 +2065,9 @@ svm_rbf_timing <- data.frame(
     unname(svm_rbf_sigma_0015625_time["elapsed"]),
     unname(svm_rbf_C_05_time["elapsed"]),
     unname(svm_rbf_C_2_time["elapsed"]),
+    unname(svm_rbf_C_4_time["elapsed"]),
     unname(svm_rbf_C_8_time["elapsed"]),
+    unname(svm_rbf_C_16_time["elapsed"]),
     unname(svm_rbf_C_32_time["elapsed"]),
     unname(svm_rbf_pilot_time["elapsed"]),
     unname(svm_rbf_sigma_00625_time["elapsed"])
@@ -2120,7 +2202,7 @@ svm_rbf_tuning_plot <- ggplot(
     x = "Parameter value",
     y = "Mean cross-validated Macro-F1",
     title = "Weighted RBF SVM targeted sensitivity analysis",
-    subtitle = "Error bars show ±1 fold-level standard deviation"
+    subtitle = "Error bars show +/- 1 fold-level standard deviation"
   ) +
   theme_minimal(base_size = 11) +
   theme(
