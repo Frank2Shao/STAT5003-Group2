@@ -21,8 +21,6 @@ mlr_test     <- selected_metrics[selected_metrics$model == "MLR (shared split)",
 base_test    <- selected_metrics[selected_metrics$model == "Majority baseline", ]
 ```
 
-On the five shared provider-grouped folds, the corrected MLR retained the highest mean CV macro-F1 (**`r f4(selected_mlr$mean_macro_f1)`**, SD `r f4(selected_mlr$sd_macro_f1)`; mean accuracy `r pct2(selected_mlr$mean_accuracy)`), ahead of `r runner_up$model` (`r f4(runner_up$mean_macro_f1)`). This difference is descriptive and does not establish statistical superiority.
-
 Before final evaluation, the original MLR functions and tuning grid were rerun with the shared split and five shared folds, because the original MLR split differed from the group's split. The corrected ridge multinomial model used alpha = 0, lambda = 0.001 and square-root inverse-frequency class weights. Its preprocessing and class weights were learned from the training data only, and it was refitted on all 13,497 training services. Model choice and parameters were fixed before test scores were computed, and the corrected model was not tuned on the test partition. However, the project's test partition had been exposed in earlier model work, so the results below are not a pristine independent confirmation and should be read as descriptive estimates.
 
 ```{r selected-report-test-table, echo=TRUE}

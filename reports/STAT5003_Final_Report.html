@@ -444,6 +444,35 @@ Standard Rating Tiers</h1>
 </div>
 
 
+<style type="text/css">
+@media print {
+@page { size: A4; margin: 10mm; }
+html, body { font-size: 9.5pt !important; line-height: 1.25 !important; }
+body { margin: 0 !important; }
+.main-container, .container-fluid.main-container {
+max-width: 100% !important;
+width: 100% !important;
+margin: 0 !important;
+padding: 0 !important;
+}
+h1, h2, h3, h4, h5, h6 { font-weight: 700 !important; }
+h1 { font-size: 15pt; margin: 8px 0 4px; }
+h2 { font-size: 12.5pt; margin: 6px 0 3px; }
+h3, h4 { font-size: 11pt; margin: 5px 0 2px; }
+p { margin: 0 0 4px; }
+ul, ol { margin: 0 0 4px; padding-left: 18px; }
+li { margin: 0; }
+.btn-group, .code-folding-btn, .fold-btn, .tocify { display: none !important; }
+img { max-width: 100% !important; max-height: 62mm; width: auto; height: auto; }
+.figure, .caption, p.caption { margin: 2px 0; }
+.caption, p.caption { font-size: 8pt; }
+table { font-size: 8pt; margin-bottom: 4px; }
+th, td { padding: 2px 4px !important; }
+h1, h2, h3, h4 { page-break-after: avoid; }
+img, table, tr { page-break-inside: avoid; }
+#references { page-break-before: always; }
+}
+</style>
 <style>
 #exploratory-data-analysis-eda .quarto-layout-row {
 display: flex !important;
@@ -1856,10 +1885,10 @@ tuning improved macro-F1 by <strong>0.0856</strong> (approximately
 of accuracy. This trade-off is consistent with placing more emphasis on
 minority rating tiers.</p>
 <p>Rerunning the same grid on the shared split selected <strong><span class="math inline">\(\lambda = 0.001\)</span></strong> with the same
-square-root inverse-frequency weights. This corrected model had a mean
-CV macro-F1 of <strong>0.4871</strong> (SD <strong>0.0180</strong>) and
-mean CV accuracy of <strong>72.55%</strong>. It is the MLR used in the
-model comparison and test evaluation below; the tables in this section
+square-root inverse-frequency weights. This model had a mean CV macro-F1
+of <strong>0.4871</strong> (SD <strong>0.0180</strong>) and mean CV
+accuracy of <strong>72.55%</strong>. It is the MLR used in the model
+comparison and test evaluation below; the tables in this section
 describe the original-split run.</p>
 <pre class="r"><code># Five-fold provider-grouped CV results; all three NQS classes included in macro-F1.
 mlr_cv_summary &lt;- data.frame(
@@ -5292,7 +5321,8 @@ results).</caption>
 same five shared provider-grouped folds. kNN and Random Forest recalls
 are pooled out-of-fold values, whereas the others are fold means. The
 same folds were used for tuning and reporting, so these estimates are
-subject to selection optimism.</p>
+subject to selection optimism. MLR per-class CV recall was not saved for
+the shared-split run.</p>
 <p>Following comparison of the candidate models, the group selected the
 tuned ridge MLR as its final model. On the five shared provider-grouped
 folds it had the highest mean CV macro-F1 (0.4871, SD 0.0180; mean
@@ -5308,10 +5338,6 @@ caveat about earlier use of the test partition is given in the next
 subsection.</p>
 <div id="selected-model-and-test-evaluation" class="section level3">
 <h3>Selected model and test evaluation</h3>
-<p>On the five shared provider-grouped folds, the corrected MLR retained
-the highest mean CV macro-F1 (<strong>0.4871</strong>, SD 0.0180; mean
-accuracy 72.55%), ahead of Random Forest (0.4825). This difference is
-descriptive and does not establish statistical superiority.</p>
 <p>Before final evaluation, the original MLR functions and tuning grid
 were rerun with the shared split and five shared folds, because the
 original MLR split differed from the group’s split. The corrected ridge
@@ -5649,10 +5675,10 @@ identified <strong>86.5%</strong> of Meeting NQS services and
 detected more Below NQS services in cross-validation did so at a cost in
 overall accuracy: Random Forest identified 29.0% of them at 63.0%
 accuracy, and LDA with equal priors identified 52.5% at 51.1% accuracy.
-The MLR coefficients suggest that approval age, standalone preschool
-status, after-school-care status and provider service count are
-associated with tier differences, but these are conditional associations
-in one register snapshot, not causal effects.</p>
+The MLR coefficients suggest that state, after-school-care status,
+standalone preschool status, provider approval age and provider service
+count are associated with tier differences, but these are conditional
+associations in one register snapshot, not causal effects.</p>
 <p>The model may therefore support exploratory monitoring and questions
 for quality-review planning, but it should not be used alone to screen
 services or to determine regulatory action. Several limitations apply.
@@ -5692,17 +5718,26 @@ integrating R Markdown code, and checking reported results against
 existing model outputs. I carefully reviewed the related content for
 accuracy and take responsibility for the submitted work.</p>
 <p>I, Khoa Tran (SID: 550339069), acknowledge the use of Claude’s Sonnet
-as a supporting tool during the validation of LDA model and
-cross-validation sections of the final report, including checking
-grammar, improving readability and formatting. I carefully reviewed the
-related content for accuracy and take responsibility for the submitted
-work.</p>
+as a supporting tool during the validation of LDA model,
+cross-validation comparison, and conclusion sections of the final
+report, including checking grammar, improving readability and
+formatting. I carefully reviewed the related content for accuracy and
+take responsibility for the submitted work.</p>
 <p>I, Yuzhi Shao (SID: 550139687), acknowledge the use of OpenAI Codex
 as a supporting tool during the preparation of the SVM section of the
 final report, including checking text grammar and shortening text,
 integrating R Markdown code, and checking reported results against
 existing model outputs. I carefully reviewed the related content for
 accuracy and take responsibility for the submitted work.</p>
+<p>I, Jian Zhang (SID: 541018333), acknowledge the use of ChatGPT as a
+supporting tool during the preparation of the MLR section of the final
+report, including checking the correctness of the report grammar and
+debugging. I carefully reviewed the related content for accuracy and
+take responsibility for the submitted work.</p>
+<p>I, Wenchen Zhong (SID: 550245221), acknowledge the use of OpenAI
+Codex to assist with writing and checking R code, drafting and revising
+the Random Forest and selected-model evaluation sections, checking
+results, and improving grammar and report formatting.</p>
 </div>
 <div id="appendix" class="section level1">
 <h1>Appendix</h1>

@@ -9,6 +9,35 @@ output:
     code_folding: hide 
     toc: false
 ---
+```{css, echo=FALSE}
+@media print {
+  @page { size: A4; margin: 10mm; }
+  html, body { font-size: 9.5pt !important; line-height: 1.25 !important; }
+  body { margin: 0 !important; }
+  .main-container, .container-fluid.main-container {
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  h1, h2, h3, h4, h5, h6 { font-weight: 700 !important; }
+  h1 { font-size: 15pt; margin: 8px 0 4px; }
+  h2 { font-size: 12.5pt; margin: 6px 0 3px; }
+  h3, h4 { font-size: 11pt; margin: 5px 0 2px; }
+  p { margin: 0 0 4px; }
+  ul, ol { margin: 0 0 4px; padding-left: 18px; }
+  li { margin: 0; }
+  .btn-group, .code-folding-btn, .fold-btn, .tocify { display: none !important; }
+  img { max-width: 100% !important; max-height: 62mm; width: auto; height: auto; }
+  .figure, .caption, p.caption { margin: 2px 0; }
+  .caption, p.caption { font-size: 8pt; }
+  table { font-size: 8pt; margin-bottom: 4px; }
+  th, td { padding: 2px 4px !important; }
+  h1, h2, h3, h4 { page-break-after: avoid; }
+  img, table, tr { page-break-inside: avoid; }
+  #references { page-break-before: always; }
+}
+```
 
 <style>
 #exploratory-data-analysis-eda .quarto-layout-row {
@@ -300,7 +329,7 @@ Because **Meeting NQS accounted for 74.3%** of the services, an unweighted model
 
 On the original MLR split, the selected configuration used **$\lambda = 0.003$** and **square-root inverse-frequency class weights**. It achieved a mean CV macro-F1 of **0.4859** (SD **0.0151**) and mean CV accuracy of **72.92%**. The unweighted baseline MLR achieved macro-F1 **0.4003** and accuracy **75.47%**. Thus, tuning improved macro-F1 by **0.0856** (approximately **21.4% relative**) at the cost of 2.55 percentage points of accuracy. This trade-off is consistent with placing more emphasis on minority rating tiers.
 
-Rerunning the same grid on the shared split selected **$\lambda = 0.001$** with the same square-root inverse-frequency weights. This corrected model had a mean CV macro-F1 of **`r f4(selected_mlr$mean_macro_f1)`** (SD **`r f4(selected_mlr$sd_macro_f1)`**) and mean CV accuracy of **`r pct2(selected_mlr$mean_accuracy)`**. It is the MLR used in the model comparison and test evaluation below; the tables in this section describe the original-split run.
+Rerunning the same grid on the shared split selected **$\lambda = 0.001$** with the same square-root inverse-frequency weights. This model had a mean CV macro-F1 of **`r f4(selected_mlr$mean_macro_f1)`** (SD **`r f4(selected_mlr$sd_macro_f1)`**) and mean CV accuracy of **`r pct2(selected_mlr$mean_accuracy)`**. It is the MLR used in the model comparison and test evaluation below; the tables in this section describe the original-split run.
 
 ```{r mlr-cv-results, echo=TRUE}
 # Five-fold provider-grouped CV results; all three NQS classes included in macro-F1.
@@ -414,7 +443,7 @@ The following table summarises the mean five-fold cross-validation performance o
 cv <- cv_sel
 cv$model[cv$model == "MLR (shared split)"] <- "MLR (selected)"
 
-# Corrected-MLR CV recalls (mean over the five shared folds)
+# MLR CV recalls (mean over the five shared folds)
 mlr_f <- selected_csv("outputs/mlr_shared/mlr_tuning_fold_metrics.csv")
 mlr_f <- mlr_f[mlr_f$weights == selected_config$weights &
                abs(mlr_f$lambda - selected_config$lambda) < 1e-12, ]
@@ -455,7 +484,7 @@ knitr::kable(cv_comparison, align = c("l", "l", rep("r", 6)),
   caption = "Provider-grouped five-fold CV comparison of each candidate's selected configuration (training set only; not held-out test results).")
 ```
 
-*Notes:* All macro-F1, SD and accuracy values come from the same five shared provider-grouped folds. kNN and Random Forest recalls are pooled out-of-fold values, whereas the others are fold means. The same folds were used for tuning and reporting, so these estimates are subject to selection optimism.
+*Notes:* All macro-F1, SD and accuracy values come from the same five shared provider-grouped folds. kNN and Random Forest recalls are pooled out-of-fold values, whereas the others are fold means. The same folds were used for tuning and reporting, so these estimates are subject to selection optimism. MLR per-class CV recall was not saved for the shared-split run.
 
 Following comparison of the candidate models, the group selected the tuned ridge MLR as its final model. On the five shared provider-grouped folds it had the highest mean CV macro-F1 (`r f4(selected_mlr$mean_macro_f1)`, SD `r f4(selected_mlr$sd_macro_f1)`; mean accuracy `r pct2(selected_mlr$mean_accuracy)`), narrowly ahead of Random Forest (`r f4(selected_rf$mean_macro_f1)`) and the RBF SVM (`r f4(selected_svm$mean_macro_f1)`). These gaps are smaller than the fold-to-fold variation, so the ranking is descriptive rather than a statistical win. The selection criterion was the highest mean CV macro-F1, and the MLR also provides the interpretable coefficients used in the next section. Random Forest detected more Below NQS services in CV but at much lower accuracy (`r pct2(selected_rf$mean_accuracy)` against `r pct2(selected_mlr$mean_accuracy)` for the MLR). The choice was made from training-set cross-validation before test scores were computed; the caveat about earlier use of the test partition is given in the next subsection.
 
@@ -480,7 +509,7 @@ Any practical use would require expert oversight, assessment of subgroup perform
 
 The research question asked how well administrative service and provider characteristics can classify an Australian education and care service's recorded NQS rating tier. The answer from this analysis is: **better than a majority-class guess on balanced performance, but not reliably enough for tier-level decisions**. Across the five candidate models, the best mean CV macro-F1 was close to `r f4(selected_mlr$mean_macro_f1)`, and the top three models (MLR, Random Forest and RBF SVM) were within about `r sprintf("%.2f", selected_mlr$mean_macro_f1 - selected_svm$mean_macro_f1)` of each other, compared with `r f4(cv_sel$mean_macro_f1[cv_sel$model == "Majority baseline"])` for the majority-class baseline. The selected ridge MLR scored a macro-F1 of **`r f4(mlr_test$macro_f1)`** on the `r format(mlr_test$n_test, big.mark = ",")`-service held-out test partition, against **`r f4(base_test$macro_f1)`** for the baseline. Its test accuracy (**`r pct2(mlr_test$accuracy)`**) was lower than the baseline's (**`r pct2(base_test$accuracy)`**) because the baseline predicts the dominant Meeting NQS tier every time. The test macro-F1 was lower than the mean CV macro-F1 of `r f4(selected_mlr$mean_macro_f1)`, which is consistent with cross-validation estimates being somewhat optimistic after tuning and selection on the same folds, although a single test split cannot confirm this.
 
-Performance differed sharply by tier. On the test partition the MLR identified **`r pct1(test_recall["Meeting NQS"])`** of Meeting NQS services and **`r pct1(test_recall["Above NQS"])`** of Above NQS services, but only **`r pct1(test_recall["Below NQS"])`** (`r test_cm_mat["Below NQS", "Below NQS"]` of `r sum(test_cm_mat["Below NQS", ])`) of Below NQS services. Models that detected more Below NQS services in cross-validation did so at a cost in overall accuracy: Random Forest identified 29.0% of them at `r pct1(selected_rf$mean_accuracy)` accuracy, and LDA with equal priors identified 52.5% at `r pct1(selected_lda$mean_accuracy)` accuracy. The MLR coefficients suggest that approval age, standalone preschool status, after-school-care status and provider service count are associated with tier differences, but these are conditional associations in one register snapshot, not causal effects.
+Performance differed sharply by tier. On the test partition the MLR identified **`r pct1(test_recall["Meeting NQS"])`** of Meeting NQS services and **`r pct1(test_recall["Above NQS"])`** of Above NQS services, but only **`r pct1(test_recall["Below NQS"])`** (`r test_cm_mat["Below NQS", "Below NQS"]` of `r sum(test_cm_mat["Below NQS", ])`) of Below NQS services. Models that detected more Below NQS services in cross-validation did so at a cost in overall accuracy: Random Forest identified 29.0% of them at `r pct1(selected_rf$mean_accuracy)` accuracy, and LDA with equal priors identified 52.5% at `r pct1(selected_lda$mean_accuracy)` accuracy. The MLR coefficients suggest that state, after-school-care status, standalone preschool status, provider approval age and provider service count are associated with tier differences, but these are conditional associations in one register snapshot, not causal effects.
 
 The model may therefore support exploratory monitoring and questions for quality-review planning, but it should not be used alone to screen services or to determine regulatory action. Several limitations apply. The outcome is highly imbalanced and treated as nominal, so the tiers' ordering is not used. The same folds were used for tuning and reporting, which can inflate cross-validation estimates. The test partition had been exposed in earlier model work, so the test results are descriptive estimates rather than a pristine independent confirmation. Future work could add richer predictors, use ordinal or cost-sensitive methods aimed at Below NQS recall, check subgroup performance across states and service types, and validate on a later register snapshot.
 
@@ -501,11 +530,13 @@ Schliep, K., & Hechenbichler, K. (2025). *kknn: Weighted k-nearest neighbors* (V
 # AI Use Statement
 I, Zixuan Zhao (SID: 550497901), acknowledge the use of OpenAI Codex as a supporting tool during the preparation of the KNN section of the final report, including checking text grammar and improving clarity, integrating R Markdown code, and checking reported results against existing model outputs. I carefully reviewed the related content for accuracy and take responsibility for the submitted work.
 
-I, Khoa Tran (SID: 550339069), acknowledge the use of Claude's Sonnet as a supporting tool during the validation of LDA model and cross-validation sections of the final report, including checking grammar, improving readability and formatting. I carefully reviewed the related content for accuracy and take responsibility for the submitted work.
+I, Khoa Tran (SID: 550339069), acknowledge the use of Claude's Sonnet as a supporting tool during the validation of LDA model, cross-validation comparison, and conclusion sections of the final report, including checking grammar, improving readability and formatting. I carefully reviewed the related content for accuracy and take responsibility for the submitted work.
 
 I, Yuzhi Shao (SID: 550139687), acknowledge the use of OpenAI Codex as a supporting tool during the preparation of the SVM section of the final report, including checking text grammar and shortening text, integrating R Markdown code, and checking reported results against existing model outputs. I carefully reviewed the related content for accuracy and take responsibility for the submitted work.
 
 I, Jian Zhang (SID: 541018333), acknowledge the use of ChatGPT as a supporting tool during the preparation of the MLR section of the final report, including checking the correctness of the report grammar and debugging. I carefully reviewed the related content for accuracy and take responsibility for the submitted work.
+
+I, Wenchen Zhong (SID: 550245221), acknowledge the use of OpenAI Codex to assist with writing and checking R code, drafting and revising the Random Forest and selected-model evaluation sections, checking results, and improving grammar and report formatting.
 
 # Appendix
 
