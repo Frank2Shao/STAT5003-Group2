@@ -367,6 +367,55 @@ print(svm_linear_C_00078125$results)
 cat("\nElapsed time:\n")
 print(svm_linear_C_00078125_time)
 
+# Additional candidates required to align the unweighted and weighted grids.
+
+set.seed(5030L)
+
+svm_linear_C_00625_time <- system.time({
+  svm_linear_C_00625 <- train(
+    scaled_recipe,
+    data = training_model_data,
+    method = "svmLinear",
+    trControl = coarse_control_verbose,
+    tuneGrid = data.frame(C = 0.0625),
+    metric = "Macro_F1",
+    maximize = TRUE
+  )
+})
+
+set.seed(5031L)
+
+svm_linear_C_025_time <- system.time({
+  svm_linear_C_025 <- train(
+    scaled_recipe,
+    data = training_model_data,
+    method = "svmLinear",
+    trControl = coarse_control_verbose,
+    tuneGrid = data.frame(C = 0.25),
+    metric = "Macro_F1",
+    maximize = TRUE
+  )
+})
+
+set.seed(5032L)
+
+svm_linear_C_8_time <- system.time({
+  svm_linear_C_8 <- train(
+    scaled_recipe,
+    data = training_model_data,
+    method = "svmLinear",
+    trControl = coarse_control_verbose,
+    tuneGrid = data.frame(C = 8),
+    metric = "Macro_F1",
+    maximize = TRUE
+  )
+})
+
+cat("\nAdditional unweighted Linear SVM candidates completed.\n")
+print(svm_linear_C_00625$results)
+print(svm_linear_C_025$results)
+print(svm_linear_C_8$results)
+
 # -------------------------------------------------------------------
 # Phase 2: unweighted tuning summary
 # -------------------------------------------------------------------
@@ -389,9 +438,12 @@ svm_result_columns <- c(
 svm_linear_unweighted_results <- rbind(
   svm_linear_C_00078125$results[, svm_result_columns],
   svm_linear_C_003125$results[, svm_result_columns],
+  svm_linear_C_00625$results[, svm_result_columns],
   svm_linear_C_0125$results[, svm_result_columns],
+  svm_linear_C_025$results[, svm_result_columns],
   svm_linear_C_05$results[, svm_result_columns],
-  svm_linear_C_2$results[, svm_result_columns]
+  svm_linear_C_2$results[, svm_result_columns],
+  svm_linear_C_8$results[, svm_result_columns]
 )
 
 svm_linear_unweighted_results <-
@@ -401,15 +453,31 @@ svm_linear_unweighted_results <-
 
 rownames(svm_linear_unweighted_results) <- NULL
 
-unweighted_reference_C <- 2^(-5)
+unweighted_max_macro_f1 <- max(
+  svm_linear_unweighted_results$Macro_F1
+)
 
-unweighted_reference_result <-
+unweighted_eligible_results <-
   svm_linear_unweighted_results[
-    svm_linear_unweighted_results$C == unweighted_reference_C,
+    svm_linear_unweighted_results$Macro_F1 >=
+      unweighted_max_macro_f1 - 0.001,
+  ]
+
+selected_unweighted_C <- min(
+  unweighted_eligible_results$C
+)
+
+selected_unweighted_result <-
+  svm_linear_unweighted_results[
+    svm_linear_unweighted_results$C == selected_unweighted_C,
   ]
 
 stopifnot(
-  nrow(unweighted_reference_result) == 1L,
+  nrow(selected_unweighted_result) == 1L,
+  setequal(
+    svm_linear_unweighted_results$C,
+    c(0.0078125, 0.03125, 0.0625, 0.125, 0.25, 0.5, 2, 8)
+  ),
   all(svm_linear_unweighted_results$Recall_Below.NQS == 0),
   all(svm_linear_unweighted_results$Recall_Meeting.NQS == 1),
   all(svm_linear_unweighted_results$Recall_Above.NQS == 0)
@@ -422,11 +490,11 @@ cat(
 print(svm_linear_unweighted_results)
 
 cat(
-  "\nUnweighted reference C:", unweighted_reference_C,
-  "\nReason: all tested candidates produced identical CV metrics;",
-  "\nC = 0.03125 is the smallest value in the planned coarse grid.",
-  "\nLarger values were increasingly expensive, so C = 8 and C = 32",
-  "\nwere not retained for further unweighted evaluation.\n"
+  "\nSelected unweighted C:", selected_unweighted_C,
+  "\nSelection rule: highest mean Macro-F1; within 0.001,",
+  "\nretain the smaller C for stronger regularisation.",
+  "\nC = 8 did not improve Macro-F1 or minority-class recall over C = 2,",
+  "\nso C = 4 and C = 16 were not added.\n"
 )
 
 
@@ -472,7 +540,7 @@ cat(
 
 print(svm_class_weight_table)
 
-# Weighted candidate at the unweighted reference C
+# Weighted candidate: C = 0.03125
 
 set.seed(5012L)
 
@@ -482,7 +550,7 @@ svm_linear_weighted_C_003125_time <- system.time({
     data = training_model_data,
     method = "svmLinear",
     trControl = coarse_control_verbose,
-    tuneGrid = data.frame(C = unweighted_reference_C),
+    tuneGrid = data.frame(C = 0.03125),
     metric = "Macro_F1",
     maximize = TRUE,
     class.weights = svm_class_weights
@@ -491,7 +559,7 @@ svm_linear_weighted_C_003125_time <- system.time({
 
 cat(
   "\nClass-weighted Linear SVM completed.",
-  "\nC:", unweighted_reference_C,
+  "\nC:", 0.03125,
   "\n\nCross-validation results:\n"
 )
 
@@ -640,6 +708,42 @@ print(svm_linear_weighted_C_025$results)
 cat("\nElapsed time:\n")
 print(svm_linear_weighted_C_025_time)
 
+# Weighted candidates required to match the final unweighted grid.
+
+set.seed(5035L)
+
+svm_linear_weighted_C_2_time <- system.time({
+  svm_linear_weighted_C_2 <- train(
+    scaled_recipe,
+    data = training_model_data,
+    method = "svmLinear",
+    trControl = coarse_control_verbose,
+    tuneGrid = data.frame(C = 2),
+    metric = "Macro_F1",
+    maximize = TRUE,
+    class.weights = svm_class_weights
+  )
+})
+
+set.seed(5036L)
+
+svm_linear_weighted_C_8_time <- system.time({
+  svm_linear_weighted_C_8 <- train(
+    scaled_recipe,
+    data = training_model_data,
+    method = "svmLinear",
+    trControl = coarse_control_verbose,
+    tuneGrid = data.frame(C = 8),
+    metric = "Macro_F1",
+    maximize = TRUE,
+    class.weights = svm_class_weights
+  )
+})
+
+cat("\nAdditional weighted Linear SVM candidates completed.\n")
+print(svm_linear_weighted_C_2$results)
+print(svm_linear_weighted_C_8$results)
+
 # -------------------------------------------------------------------
 # Phase 3: weighted tuning summary
 # -------------------------------------------------------------------
@@ -654,7 +758,9 @@ svm_linear_weighted_results <- rbind(
   svm_linear_weighted_C_00625$results[, svm_result_columns],
   svm_linear_weighted_C_0125$results[, svm_result_columns],
   svm_linear_weighted_C_025$results[, svm_result_columns],
-  svm_linear_weighted_C_05$results[, svm_result_columns]
+  svm_linear_weighted_C_05$results[, svm_result_columns],
+  svm_linear_weighted_C_2$results[, svm_result_columns],
+  svm_linear_weighted_C_8$results[, svm_result_columns]
 )
 
 svm_linear_weighted_results <-
@@ -688,6 +794,14 @@ weighted_resample_results <- rbind(
   data.frame(
     C = 0.5,
     svm_linear_weighted_C_05$resample
+  ),
+  data.frame(
+    C = 2,
+    svm_linear_weighted_C_2$resample
+  ),
+  data.frame(
+    C = 8,
+    svm_linear_weighted_C_8$resample
   )
 )
 
@@ -776,13 +890,48 @@ print(
 # Phase 4: selected-model out-of-fold diagnostics
 # -------------------------------------------------------------------
 
-# C = 0.125 is retained because its performance is practically
-# indistinguishable from C = 0.5 while applying stronger regularisation.
+# Select the highest mean CV Macro-F1. Candidates within 0.001 of the
+# maximum are treated as practically tied, and the smaller C is retained.
 # All diagnostics below use predictions from held-out CV folds only.
 
-selected_weighted_C <- 0.125
+weighted_max_macro_f1 <- max(
+  svm_linear_weighted_results$Macro_F1
+)
 
-svm_linear_selected <- svm_linear_weighted_C_0125
+weighted_eligible_results <- svm_linear_weighted_results[
+  svm_linear_weighted_results$Macro_F1 >=
+    weighted_max_macro_f1 - 0.001,
+]
+
+selected_weighted_C <- min(weighted_eligible_results$C)
+
+linear_candidate_values <- c(
+  0.0078125, 0.03125, 0.0625, 0.125,
+  0.25, 0.5, 2, 8
+)
+
+linear_weighted_candidate_models <- list(
+  svm_linear_weighted_C_00078125,
+  svm_linear_weighted_C_003125,
+  svm_linear_weighted_C_00625,
+  svm_linear_weighted_C_0125,
+  svm_linear_weighted_C_025,
+  svm_linear_weighted_C_05,
+  svm_linear_weighted_C_2,
+  svm_linear_weighted_C_8
+)
+
+svm_linear_selected <- linear_weighted_candidate_models[[
+  match(selected_weighted_C, linear_candidate_values)
+]]
+
+stopifnot(
+  setequal(
+    svm_linear_unweighted_results$C,
+    svm_linear_weighted_results$C
+  ),
+  !is.na(match(selected_weighted_C, linear_candidate_values))
+)
 
 selected_oof_predictions <- svm_linear_selected$pred[
   svm_linear_selected$pred$C == selected_weighted_C,
@@ -917,7 +1066,7 @@ svm_model_comparison <- data.frame(
   ),
   C = c(
     NA_real_,
-    unweighted_reference_C,
+    selected_unweighted_C,
     selected_weighted_C
   ),
   weighting = c(
@@ -927,27 +1076,27 @@ svm_model_comparison <- data.frame(
   ),
   Macro_F1 = c(
     unname(baseline_metrics["Macro_F1"]),
-    unweighted_reference_result$Macro_F1,
+    selected_unweighted_result$Macro_F1,
     svm_linear_selected$results$Macro_F1
   ),
   Accuracy = c(
     unname(baseline_metrics["Accuracy"]),
-    unweighted_reference_result$Accuracy,
+    selected_unweighted_result$Accuracy,
     svm_linear_selected$results$Accuracy
   ),
   Recall_Below_NQS = c(
     unname(baseline_metrics["Recall_Below.NQS"]),
-    unweighted_reference_result$Recall_Below.NQS,
+    selected_unweighted_result$Recall_Below.NQS,
     svm_linear_selected$results$Recall_Below.NQS
   ),
   Recall_Meeting_NQS = c(
     unname(baseline_metrics["Recall_Meeting.NQS"]),
-    unweighted_reference_result$Recall_Meeting.NQS,
+    selected_unweighted_result$Recall_Meeting.NQS,
     svm_linear_selected$results$Recall_Meeting.NQS
   ),
   Recall_Above_NQS = c(
     unname(baseline_metrics["Recall_Above.NQS"]),
-    unweighted_reference_result$Recall_Above.NQS,
+    selected_unweighted_result$Recall_Above.NQS,
     svm_linear_selected$results$Recall_Above.NQS
   ),
   row.names = NULL
@@ -1107,36 +1256,46 @@ elapsed_seconds <- function(timing_object) {
 svm_timing_results <- data.frame(
   specification = c(
     "Unweighted pilot",
-    rep("Unweighted", 5),
-    rep("Weighted", 6)
+    rep("Unweighted", 8),
+    rep("Weighted", 8)
   ),
   C = c(
     1,
     0.0078125,
     0.03125,
+    0.0625,
     0.125,
+    0.25,
     0.5,
     2,
+    8,
     0.0078125,
     0.03125,
     0.0625,
     0.125,
     0.25,
-    0.5
+    0.5,
+    2,
+    8
   ),
   elapsed_seconds = c(
     elapsed_seconds(svm_linear_pilot_time),
     elapsed_seconds(svm_linear_C_00078125_time),
     elapsed_seconds(svm_linear_C_003125_time),
+    elapsed_seconds(svm_linear_C_00625_time),
     elapsed_seconds(svm_linear_C_0125_time),
+    elapsed_seconds(svm_linear_C_025_time),
     elapsed_seconds(svm_linear_C_05_time),
     elapsed_seconds(svm_linear_C_2_time),
+    elapsed_seconds(svm_linear_C_8_time),
     elapsed_seconds(svm_linear_weighted_C_00078125_time),
     elapsed_seconds(svm_linear_weighted_C_003125_time),
     elapsed_seconds(svm_linear_weighted_C_00625_time),
     elapsed_seconds(svm_linear_weighted_C_0125_time),
     elapsed_seconds(svm_linear_weighted_C_025_time),
-    elapsed_seconds(svm_linear_weighted_C_05_time)
+    elapsed_seconds(svm_linear_weighted_C_05_time),
+    elapsed_seconds(svm_linear_weighted_C_2_time),
+    elapsed_seconds(svm_linear_weighted_C_8_time)
   ),
   row.names = NULL
 )
@@ -1363,10 +1522,6 @@ print(svm_rbf_sigma_0015625_time)
 # Phase 8: RBF pilot summary and diagnostics
 # -------------------------------------------------------------------
 
-selected_rbf_C <- 0.125
-selected_rbf_sigma <- 0.015625
-selected_rbf_model <- svm_rbf_sigma_0015625
-
 # Combine the three RBF sensitivity-analysis candidates.
 
 rbf_result_columns <- c(
@@ -1394,16 +1549,52 @@ svm_rbf_pilot_results <-
 
 rownames(svm_rbf_pilot_results) <- NULL
 
+rbf_sigma_candidate_values <- c(
+  0.015625, rbf_pilot_sigma, 0.0625
+)
+
+rbf_sigma_candidate_models <- list(
+  svm_rbf_sigma_0015625,
+  svm_rbf_pilot,
+  svm_rbf_sigma_00625
+)
+
+rbf_sigma_candidate_times <- list(
+  svm_rbf_sigma_0015625_time,
+  svm_rbf_pilot_time,
+  svm_rbf_sigma_00625_time
+)
+
+rbf_sigma_max_macro_f1 <- max(
+  svm_rbf_pilot_results$Macro_F1
+)
+
+rbf_sigma_eligible_results <- svm_rbf_pilot_results[
+  svm_rbf_pilot_results$Macro_F1 >=
+    rbf_sigma_max_macro_f1 - 0.001,
+]
+
+selected_rbf_sigma <- min(rbf_sigma_eligible_results$sigma)
+selected_rbf_anchor_index <- match(
+  selected_rbf_sigma,
+  rbf_sigma_candidate_values
+)
+selected_rbf_anchor_model <- rbf_sigma_candidate_models[[
+  selected_rbf_anchor_index
+]]
+selected_rbf_anchor_time <- rbf_sigma_candidate_times[[
+  selected_rbf_anchor_index
+]]
+
 rbf_selected_result <-
   svm_rbf_pilot_results[
-    svm_rbf_pilot_results$C == selected_rbf_C &
+    svm_rbf_pilot_results$C == rbf_pilot_C &
       svm_rbf_pilot_results$sigma == selected_rbf_sigma,
   ]
 
 stopifnot(
   nrow(rbf_selected_result) == 1L,
-  rbf_selected_result$Macro_F1 ==
-    max(svm_rbf_pilot_results$Macro_F1)
+  !is.na(selected_rbf_anchor_index)
 )
 
 cat("\nRBF pilot tuning results:\n")
@@ -1411,7 +1602,7 @@ print(svm_rbf_pilot_results)
 
 cat(
   "\nSelected RBF pilot configuration:",
-  "\nC:", selected_rbf_C,
+  "\nC:", rbf_pilot_C,
   "\nsigma:", selected_rbf_sigma,
   "\n"
 )
@@ -1421,21 +1612,9 @@ cat(
 # Phase 8: provisional RBF sigma selection
 # -------------------------------------------------------------------
 
-# The initial RBF sensitivity analysis compared three sigma values
-# while holding C constant at 0.125. Among these candidates,
-# sigma = 0.015625 achieved the highest mean CV Macro-F1.
-#
-# This was only a provisional selection because C had not yet been
-# evaluated for the RBF kernel. The provisional diagnostics originally
-# placed in this phase were subsequently discarded after Phase 9
-# examined additional C values before final selection in Phase 10.
-#
-# Final out-of-fold diagnostics and the Linear-RBF comparison are
-# therefore calculated only once in Phase 10. Sigma remains fixed at
-# 0.015625, while C is selected from the extended sensitivity results
-# according to the highest mean cross-validated Macro-F1.
-
-selected_rbf_sigma <- 0.015625
+# The initial RBF sensitivity analysis compares three sigma values at
+# the selected weighted Linear C. The highest mean CV Macro-F1 is used;
+# values within 0.001 are tied and resolved in favour of smaller sigma.
 
 # -------------------------------------------------------------------
 # Phase 9: targeted RBF C sensitivity analysis
@@ -1473,6 +1652,37 @@ print(svm_rbf_C_003125$results)
 
 cat("\nElapsed time:\n")
 print(svm_rbf_C_003125_time)
+
+# Candidate C = 0.125 at the dynamically selected sigma.
+
+set.seed(5028L)
+
+svm_rbf_C_0125_time <- system.time({
+  svm_rbf_C_0125 <- train(
+    scaled_recipe,
+    data = training_model_data,
+    method = "svmRadial",
+    trControl = coarse_control_verbose,
+    tuneGrid = data.frame(
+      sigma = selected_rbf_sigma,
+      C = 0.125
+    ),
+    metric = "Macro_F1",
+    maximize = TRUE,
+    class.weights = svm_class_weights
+  )
+})
+
+cat(
+  "\nWeighted RBF SVM C-sensitivity candidate completed.",
+  "\nC:", 0.125,
+  "\nsigma:", selected_rbf_sigma,
+  "\n\nCross-validation results:\n"
+)
+
+print(svm_rbf_C_0125$results)
+cat("\nElapsed time:\n")
+print(svm_rbf_C_0125_time)
 
 # Higher-C candidate at the selected pilot sigma.
 # Only C changes; preprocessing, folds, weights and sigma remain fixed.
@@ -1540,20 +1750,20 @@ print(svm_rbf_C_2$results)
 cat("\nElapsed time:\n")
 print(svm_rbf_C_2_time)
 
-# Further extended upper-bound C candidate at the selected RBF sigma.
+# Intermediate upper-bound C candidate at the selected RBF sigma.
 # Only C changes; preprocessing, folds, weights and sigma remain fixed.
 
-set.seed(5024L)
+set.seed(5026L)
 
-svm_rbf_C_8_time <- system.time({
-  svm_rbf_C_8 <- train(
+svm_rbf_C_4_time <- system.time({
+  svm_rbf_C_4 <- train(
     scaled_recipe,
     data = training_model_data,
     method = "svmRadial",
     trControl = coarse_control_verbose,
     tuneGrid = data.frame(
       sigma = selected_rbf_sigma,
-      C = 8
+      C = 4
     ),
     metric = "Macro_F1",
     maximize = TRUE,
@@ -1563,18 +1773,56 @@ svm_rbf_C_8_time <- system.time({
 
 cat(
   "\nWeighted RBF SVM extended C candidate completed.",
-  "\nC:", 8,
+  "\nC:", 4,
   "\nsigma:", selected_rbf_sigma,
   "\n\nCross-validation results:\n"
 )
 
-print(svm_rbf_C_8$results)
+print(svm_rbf_C_4$results)
 
 cat("\nElapsed time:\n")
-print(svm_rbf_C_8_time)
+print(svm_rbf_C_4_time)
+
+# The C = 8 candidate is the selected-sigma anchor already fitted above.
+
+svm_rbf_C_8 <- selected_rbf_anchor_model
+svm_rbf_C_8_time <- selected_rbf_anchor_time
+
+# Intermediate upper-bound C candidate at the selected RBF sigma.
+# Only C changes; preprocessing, folds, weights and sigma remain fixed.
+
+set.seed(5027L)
+
+svm_rbf_C_16_time <- system.time({
+  svm_rbf_C_16 <- train(
+    scaled_recipe,
+    data = training_model_data,
+    method = "svmRadial",
+    trControl = coarse_control_verbose,
+    tuneGrid = data.frame(
+      sigma = selected_rbf_sigma,
+      C = 16
+    ),
+    metric = "Macro_F1",
+    maximize = TRUE,
+    class.weights = svm_class_weights
+  )
+})
+
+cat(
+  "\nWeighted RBF SVM extended C candidate completed.",
+  "\nC:", 16,
+  "\nsigma:", selected_rbf_sigma,
+  "\n\nCross-validation results:\n"
+)
+
+print(svm_rbf_C_16$results)
+
+cat("\nElapsed time:\n")
+print(svm_rbf_C_16_time)
 
 # Further extended upper-bound C candidate at the selected RBF sigma.
-# This checks whether performance continues to improve beyond C = 8.
+# This checks whether performance continues to improve beyond C = 16.
 
 set.seed(5025L)
 
@@ -1610,11 +1858,7 @@ print(svm_rbf_C_32_time)
 # Phase 10: final targeted RBF selection and diagnostics
 # -------------------------------------------------------------------
 
-# Final RBF configuration selected by mean cross-validated Macro-F1.
-
-selected_rbf_sigma <- 0.015625
-
-# Combine all 8 unique RBF candidates.
+# Combine all 10 unique RBF candidates.
 
 
 rbf_result_columns <- c(
@@ -1631,13 +1875,17 @@ rbf_result_columns <- c(
 
 svm_rbf_targeted_results <- rbind(
   svm_rbf_C_003125$results[, rbf_result_columns],
-  svm_rbf_sigma_0015625$results[, rbf_result_columns],
+  svm_rbf_C_0125$results[, rbf_result_columns],
   svm_rbf_C_05$results[, rbf_result_columns],
   svm_rbf_C_2$results[, rbf_result_columns],
+  svm_rbf_C_4$results[, rbf_result_columns],
   svm_rbf_C_8$results[, rbf_result_columns],
+  svm_rbf_C_16$results[, rbf_result_columns],
   svm_rbf_C_32$results[, rbf_result_columns],
-  svm_rbf_pilot$results[, rbf_result_columns],
-  svm_rbf_sigma_00625$results[, rbf_result_columns]
+  svm_rbf_pilot_results[
+    svm_rbf_pilot_results$sigma != selected_rbf_sigma,
+    rbf_result_columns
+  ]
 )
 
 svm_rbf_targeted_results <-
@@ -1655,16 +1903,20 @@ rbf_C_candidate_values <- c(
   0.125,
   0.5,
   2,
+  4,
   8,
+  16,
   32
 )
 
 rbf_C_candidate_models <- list(
   svm_rbf_C_003125,
-  svm_rbf_sigma_0015625,
+  svm_rbf_C_0125,
   svm_rbf_C_05,
   svm_rbf_C_2,
+  svm_rbf_C_4,
   svm_rbf_C_8,
+  svm_rbf_C_16,
   svm_rbf_C_32
 )
 
@@ -1672,20 +1924,25 @@ rbf_C_candidate_results <- svm_rbf_targeted_results[
   svm_rbf_targeted_results$sigma == selected_rbf_sigma,
 ]
 
-selected_rbf_C <- rbf_C_candidate_results$C[
-  which.max(rbf_C_candidate_results$Macro_F1)
+rbf_C_max_macro_f1 <- max(rbf_C_candidate_results$Macro_F1)
+
+rbf_C_eligible_results <- rbf_C_candidate_results[
+  rbf_C_candidate_results$Macro_F1 >=
+    rbf_C_max_macro_f1 - 0.001,
 ]
+
+selected_rbf_C <- min(rbf_C_eligible_results$C)
 
 selected_rbf_model <- rbf_C_candidate_models[[
   match(selected_rbf_C, rbf_C_candidate_values)
 ]]
 
 svm_rbf_targeted_results$search_role <- ifelse(
-  svm_rbf_targeted_results$sigma == 0.015625 &
-    svm_rbf_targeted_results$C == 0.125,
+  svm_rbf_targeted_results$sigma == selected_rbf_sigma &
+    svm_rbf_targeted_results$C == rbf_pilot_C,
   "Shared reference",
   ifelse(
-    svm_rbf_targeted_results$sigma == 0.015625,
+    svm_rbf_targeted_results$sigma == selected_rbf_sigma,
     "C sensitivity",
     "Sigma sensitivity"
   )
@@ -1704,7 +1961,7 @@ rbf_parameter_pairs <- paste(
 )
 
 stopifnot(
-  nrow(svm_rbf_targeted_results) == 8L,
+  nrow(svm_rbf_targeted_results) == 10L,
   !anyDuplicated(rbf_parameter_pairs),
   nrow(rbf_selected_result) == 1L,
   rbf_selected_result$Macro_F1 ==
@@ -1939,56 +2196,49 @@ names(svm_rbf_confusion_output) <- c(
 
 # Training-time summary
 
+rbf_C_candidate_times <- list(
+  svm_rbf_C_003125_time,
+  svm_rbf_C_0125_time,
+  svm_rbf_C_05_time,
+  svm_rbf_C_2_time,
+  svm_rbf_C_4_time,
+  svm_rbf_C_8_time,
+  svm_rbf_C_16_time,
+  svm_rbf_C_32_time
+)
+
+other_sigma_indices <- which(
+  rbf_sigma_candidate_values != selected_rbf_sigma
+)
+
+rbf_timing_objects <- c(
+  rbf_C_candidate_times,
+  rbf_sigma_candidate_times[other_sigma_indices]
+)
+
 svm_rbf_timing <- data.frame(
   sigma = c(
-    0.015625,
-    0.015625,
-    0.015625,
-    0.015625,
-    0.015625,
-    0.015625,
-    0.03125,
-    0.0625
+    rep(selected_rbf_sigma, length(rbf_C_candidate_values)),
+    rbf_sigma_candidate_values[other_sigma_indices]
   ),
   C = c(
-    0.03125,
-    0.125,
-    0.5,
-    2,
-    8,
-    32,
-    0.125,
-    0.125
+    rbf_C_candidate_values,
+    rep(rbf_pilot_C, length(other_sigma_indices))
   ),
-  user_seconds = c(
-    unname(svm_rbf_C_003125_time["user.self"]),
-    unname(svm_rbf_sigma_0015625_time["user.self"]),
-    unname(svm_rbf_C_05_time["user.self"]),
-    unname(svm_rbf_C_2_time["user.self"]),
-    unname(svm_rbf_C_8_time["user.self"]),
-    unname(svm_rbf_C_32_time["user.self"]),
-    unname(svm_rbf_pilot_time["user.self"]),
-    unname(svm_rbf_sigma_00625_time["user.self"])
+  user_seconds = vapply(
+    rbf_timing_objects,
+    function(x) unname(x["user.self"]),
+    numeric(1)
   ),
-  system_seconds = c(
-    unname(svm_rbf_C_003125_time["sys.self"]),
-    unname(svm_rbf_sigma_0015625_time["sys.self"]),
-    unname(svm_rbf_C_05_time["sys.self"]),
-    unname(svm_rbf_C_2_time["sys.self"]),
-    unname(svm_rbf_C_8_time["sys.self"]),
-    unname(svm_rbf_C_32_time["sys.self"]),
-    unname(svm_rbf_pilot_time["sys.self"]),
-    unname(svm_rbf_sigma_00625_time["sys.self"])
+  system_seconds = vapply(
+    rbf_timing_objects,
+    function(x) unname(x["sys.self"]),
+    numeric(1)
   ),
-  elapsed_seconds = c(
-    unname(svm_rbf_C_003125_time["elapsed"]),
-    unname(svm_rbf_sigma_0015625_time["elapsed"]),
-    unname(svm_rbf_C_05_time["elapsed"]),
-    unname(svm_rbf_C_2_time["elapsed"]),
-    unname(svm_rbf_C_8_time["elapsed"]),
-    unname(svm_rbf_C_32_time["elapsed"]),
-    unname(svm_rbf_pilot_time["elapsed"]),
-    unname(svm_rbf_sigma_00625_time["elapsed"])
+  elapsed_seconds = vapply(
+    rbf_timing_objects,
+    function(x) unname(x["elapsed"]),
+    numeric(1)
   )
 )
 
@@ -2059,16 +2309,17 @@ rbf_C_plot_data$selected <-
   rbf_C_plot_data$C == selected_rbf_C
 
 rbf_sigma_plot_data <- svm_rbf_targeted_results[
-  svm_rbf_targeted_results$C == 0.125,
+  svm_rbf_targeted_results$C == rbf_pilot_C,
 ]
 
 rbf_sigma_plot_data$panel <-
-  "Sigma sensitivity (C = 0.125)"
+  paste0("Sigma sensitivity (C = ", rbf_pilot_C, ")")
 
 rbf_sigma_plot_data$parameter_value <-
   rbf_sigma_plot_data$sigma
 
-rbf_sigma_plot_data$selected <- FALSE
+rbf_sigma_plot_data$selected <-
+  rbf_sigma_plot_data$sigma == selected_rbf_sigma
 
 rbf_tuning_plot_data <- rbind(
   rbf_C_plot_data,
@@ -2120,12 +2371,13 @@ svm_rbf_tuning_plot <- ggplot(
     x = "Parameter value",
     y = "Mean cross-validated Macro-F1",
     title = "Weighted RBF SVM targeted sensitivity analysis",
-    subtitle = "Error bars show ±1 fold-level standard deviation"
+    subtitle = "Error bars show +/- 1 fold-level standard deviation"
   ) +
   theme_minimal(base_size = 11) +
   theme(
     panel.grid.minor = element_blank(),
-    strip.text = element_text(face = "bold")
+    strip.text = element_text(face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1)
   )
 
 ggsave(
