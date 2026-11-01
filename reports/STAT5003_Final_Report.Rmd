@@ -1,6 +1,6 @@
 ---
-title: "STAT5003 Assignment Title"
-author: "Your group number"
+title: "STAT5003 Evaluating National Quality Standard Rating Tiers"
+author: "Group 02"
 format:
   html:
     code-fold: true
@@ -153,59 +153,66 @@ local({
 })
 ```
 
+```{r selection-load, include=FALSE}
+# Saved CV and test outputs, loaded once here so the MLR, model-selection and
+# conclusion sections can all use them (defined before first use).
+selected_root <- if (file.exists("outputs/selected_model/test_metrics.csv")) "." else ".."
+selected_csv <- function(path) read.csv(file.path(selected_root, path), check.names = FALSE)
+
+cv_sel           <- selected_csv("outputs/selected_model/comparison_summary.csv")
+selected_metrics <- selected_csv("outputs/selected_model/test_metrics.csv")
+selected_config  <- selected_csv("outputs/mlr_shared/mlr_selected_config.csv")
+test_cm_raw      <- selected_csv("outputs/selected_model/test_confusion_matrix.csv")
+
+stopifnot(cv_sel$model[which.max(cv_sel$mean_macro_f1)] == "MLR (shared split)",
+          selected_config$lambda == 0.001, selected_config$weights == "sqrt_inverse")
+
+f4   <- function(x) sprintf("%.4f", x)
+pct1 <- function(x) sprintf("%.1f%%", 100 * x)
+pct2 <- function(x) sprintf("%.2f%%", 100 * x)
+
+selected_mlr <- cv_sel[cv_sel$model == "MLR (shared split)", ]
+selected_rf  <- cv_sel[cv_sel$model == "Random Forest", ]
+selected_svm <- cv_sel[cv_sel$model == "SVM (RBF)", ]
+selected_lda <- cv_sel[cv_sel$model == "LDA", ]
+mlr_test     <- selected_metrics[selected_metrics$model == "MLR (shared split)", ]
+base_test    <- selected_metrics[selected_metrics$model == "Majority baseline", ]
+
+tiers <- c("Below NQS", "Meeting NQS", "Above NQS")
+test_cm_raw$Observed  <- factor(test_cm_raw$Observed,  levels = tiers)
+test_cm_raw$Predicted <- factor(test_cm_raw$Predicted, levels = tiers)
+test_cm_mat <- as.matrix(xtabs(Count ~ Observed + Predicted, data = test_cm_raw))
+test_recall <- diag(test_cm_mat) / rowSums(test_cm_mat)
+names(test_recall) <- tiers
+```
+
 ## Linear Discriminant Analysis
 
 ### Preprocessing
 
 In addition to the shared `scaled_recipe`, the recipe used for Linear Discriminant Analysis (LDA) also further remove linear dependencies among numeric predictors and dropped predictors correlated above a `0.9` threshold.
 
-```{r lda-recipe}
-lda_recipe <- scaled_recipe |> # Additional pre-processing
-  step_lincomb(all_numeric_predictors()) |>
-  step_corr(all_numeric_predictors(), threshold = 0.9)
-```
-
-
 ### Models
 
 Two models of LDA were trained, one using the unchanged training set's class proportion (`lda_fit_emp`) and one using equal class priors to account for the class imbalance of the dataset (`lda_fit_equal`).
 
-For both models, we also performed parameter tuning on `dimen` --- the number of discriminant functions produced. This is limited by the number of classes, resulting in only 2 possible tuning values.
+For both models, we also performed parameter tuning on `dimen` --- the number of discriminant functions produced. This is limited by the number of classes, resulting in only 2 possible tuning values. 
 
-```{r lda-model-training, message=FALSE}
-lda_fit_equal <- train(
-  lda_recipe,
-  data = training_model_data,
-  trControl = model_control,
-  method = "lda2",
-  metric = "Macro_F1",
-  tuneGrid = expand.grid(dimen = 1:2),
-  prior = rep(1/3, 3) # Equal class priors
-)
-
-lda_fit_emp <- train(
-  lda_recipe,
-  data = training_model_data,
-  trControl = model_control,
-  method = "lda2",
-  metric = "Macro_F1",
-  tuneGrid = expand.grid(dimen = 1:2) # Empirical priors (training class proportions)
-)
-```
-
-Only one LDA model is included in the final model selection. Due to similar Macro F1 score for both models, `lda_fit_equal` was chosen due to its better Recall score for `Below NQS`
+Only one LDA model is included in the final model selection. Due to similar Macro F1 score for both models, `lda_fit_equal` was chosen due to its better Recall score for `Below NQS`. Additionally, both model performed better with `dimen=2`.
 
 ```{r lda-results}
-lda_prior_comparison <- bind_rows(
-  lda_fit_emp$results   |> mutate(priors = "Empirical"),
-  lda_fit_equal$results |> mutate(priors = "Equal")
-) |>
-  select(priors, dimen, Macro_F1, Accuracy, starts_with("Recall_"))
+lda_prior_comparison <- read.csv("../outputs/lda/lda_prior_comparison.csv") |>
+  select(priors, dimen, Macro_F1, Macro_F1SD, Accuracy, starts_with("Recall_")) |>
+  mutate(across(c(Macro_F1, Macro_F1SD, Accuracy, starts_with("Recall_")), ~ round(.x,4))) |> 
+  select(1:8) |>
+  arrange(dimen)
+knitr::kable(lda_prior_comparison)
+```
 
-lda_prior_comparison |>
-  mutate(across(c(Macro_F1, Accuracy, starts_with("Recall_")), ~ round(.x,2))) |>
-  select(1:7) |> arrange(dimen) |>
-  print()
+### Full model implementation
+Model implementation was done in a separate R script `model_LDA.R` for purpose of organization with steps as described above. It depends on the shared workflow in `R/06_model_setup.R`. The code is displayed without rerunning the full search during report rendering.
+```{r, echo=TRUE, eval=FALSE, code=readLines("../R/model_LDA.R"), warn=FALSE}
+
 ```
 
 ## kNN
@@ -259,7 +266,7 @@ knitr::kable(knn_classes, digits = 3,
 
 Only **45 of 1,016 Below NQS services** were correctly identified (recall 0.044); **923** were classified as Meeting NQS. For Above NQS, **784 of 2,527** were identified (recall 0.310), while **1,725** were classified as Meeting NQS. Meeting NQS recall was 0.897. Thus, local profile similarity provides some classification signal but does not reliably distinguish the minority tiers. In particular, the very low Below NQS recall limits usefulness for identifying services that may require additional support or regulatory attention.
 
-The class table pools out-of-fold predictions, giving pooled Macro-F1 **0.424**; this differs slightly from mean fold Macro-F1 **0.425** because fold sizes and distributions differ. The same folds were used for tuning and performance reporting, so these are internal estimates subject to selection optimism. **KNN was not evaluated on the held-out test set.** In the repository's common comparison, MLR achieved mean CV Macro-F1 0.487 and was selected before test scoring; KNN was therefore not the final model.
+The class table pools out-of-fold predictions, giving pooled Macro-F1 **0.424**; this differs slightly from mean fold Macro-F1 **0.425** because fold sizes and distributions differ. The same folds were used for tuning and performance reporting, so these are internal estimates subject to selection optimism. **KNN was not evaluated on the held-out test set.** In the repository's common comparison, MLR achieved mean CV Macro-F1 `r f4(selected_mlr$mean_macro_f1)` and was selected before test scoring; KNN was therefore not the final model.
 
 ### Limitations and reproducibility
 
@@ -285,13 +292,15 @@ The complete KNN script is displayed below. It includes fold-wise preprocessing,
 
 Multinomial logistic regression (MLR) was fitted as an interpretable linear model for the three rating tiers. We used ridge-regularised multinomial regression (`glmnet`, `alpha = 0`; Friedman et al., 2010) to stabilise estimation in the presence of related service and provider characteristics. MLR used the 19-predictor recipe described in *Preprocessing Recipes*, including within-fold median imputation, missing/novel-category handling, dummy encoding, zero-variance removal and normalisation. Unlike the kNN/SVM recipe, it did not log-transform `provider_service_count`. The service and provider identifiers and rating-derived fields were excluded from model inputs.
 
-To avoid information leakage, preprocessing was estimated separately within each training fold. As described above, all models used the provider-grouped 80/20 train/test split and five-fold provider-grouped cross-validation (CV) on the training set. The held-out test partition was not used to tune MLR.
+To avoid information leakage, preprocessing was estimated separately within each training fold. As described above, the other candidate models used the group's provider-grouped 80/20 train/test split and five shared provider-grouped cross-validation (CV) folds on the training set. The MLR tuning reported in this section was first run on its own provider-grouped split, which differed from the group's shared split. The MLR was therefore rerun on the shared split before model selection (see *Selected model and test evaluation*). The held-out test partition was not used to tune the MLR.
 
 ### MLR refinement and tuning
 
 Because **Meeting NQS accounted for 74.3%** of the services, an unweighted model could achieve high accuracy while overlooking smaller classes. We therefore assessed six ridge penalty values ($\lambda \in \{0.001, 0.003, 0.01, 0.03, 0.1, 0.3\}$) and three weighting schemes (no weights, square-root inverse-frequency weights and capped inverse-frequency weights): **18 configurations** in total. Each was evaluated on the same five provider-grouped folds, with mean **macro-F1** as the primary selection metric. The macro-F1 calculation included all three classes, assigning an F1 of zero to any class never predicted by a candidate.
 
-The selected MLR used **$\lambda = 0.003$** and **square-root inverse-frequency class weights**. It achieved a mean CV macro-F1 of **0.4859** (SD **0.0151**) and mean CV accuracy of **72.92%**. The baseline achieved macro-F1 **0.4003** and accuracy **75.47%**. Thus, tuning improved macro-F1 by **0.0856** (approximately **21.4% relative**) at the cost of 2.55 percentage points of accuracy. This trade-off is consistent with placing more emphasis on minority rating tiers.
+On the original MLR split, the selected configuration used **$\lambda = 0.003$** and **square-root inverse-frequency class weights**. It achieved a mean CV macro-F1 of **0.4859** (SD **0.0151**) and mean CV accuracy of **72.92%**. The unweighted baseline MLR achieved macro-F1 **0.4003** and accuracy **75.47%**. Thus, tuning improved macro-F1 by **0.0856** (approximately **21.4% relative**) at the cost of 2.55 percentage points of accuracy. This trade-off is consistent with placing more emphasis on minority rating tiers.
+
+Rerunning the same grid on the shared split selected **$\lambda = 0.001$** with the same square-root inverse-frequency weights. This corrected model had a mean CV macro-F1 of **`r f4(selected_mlr$mean_macro_f1)`** (SD **`r f4(selected_mlr$sd_macro_f1)`**) and mean CV accuracy of **`r pct2(selected_mlr$mean_accuracy)`**. It is the MLR used in the model comparison and test evaluation below; the tables in this section describe the original-split run.
 
 ```{r mlr-cv-results, echo=TRUE}
 # Five-fold provider-grouped CV results; all three NQS classes included in macro-F1.
@@ -320,7 +329,21 @@ knitr::kable(mlr_by_class, digits = 3,
              caption = 'Class-specific mean CV metrics for the selected MLR.')
 ```
 
+### MLR full implementation
+The MLR model was trained, tuned, and evaluated using the following three scripts:
+```{r mlr-baseline, echo=TRUE, eval=FALSE, code=unlist(lapply(c('../run_mlr_baseline.R', '../run_mlr_tuning.R', '../run_mlr_interpretation.R'), readLines))}
+```
+
+which further calls the scripts:
+
+```{r mlr-evaluation, echo=TRUE, eval=FALSE, code=unlist(lapply(c('../shared/split.R','../mlr/preprocessing.R', '../mlr/model.R', '../mlr/evaluation.R', '../mlr/tuning.R', '../mlr/interpretation.R'), readLines))}
+```
+
+
 ## Random Forest
+
+```{r preview-rf, child='_rf-report.Rmd'}
+```
 
 ## Support Vector Machines
 
@@ -385,24 +408,81 @@ Compared with the weighted Linear SVM, the weighted RBF SVM increased mean cross
 
 ## Selection of the final model
 
-Following comparison of the candidate models, the group selected the **tuned ridge MLR** as its final model. Its documented training-set five-fold provider-grouped CV performance was **macro-F1 0.4859** (SD **0.0151**) with **72.92% accuracy**. Model selection was carried out without consulting the held-out test set. Other models' cross-validation comparisons and the rationale for the group decision should be finalised here by the model-comparison lead; the SVM results above are not, on their own, a complete comparison of all five candidate models.
+The following table summarises the mean five-fold cross-validation performance of each candidate model on the training set:
+
+```{r cv-comparison-table, echo=FALSE}
+cv <- cv_sel
+cv$model[cv$model == "MLR (shared split)"] <- "MLR (selected)"
+
+# Corrected-MLR CV recalls (mean over the five shared folds)
+mlr_f <- selected_csv("outputs/mlr_shared/mlr_tuning_fold_metrics.csv")
+mlr_f <- mlr_f[mlr_f$weights == selected_config$weights &
+               abs(mlr_f$lambda - selected_config$lambda) < 1e-12, ]
+rc <- grep("recall", names(mlr_f), ignore.case = TRUE, value = TRUE)
+mlr_recall <- if (length(rc)) colMeans(mlr_f[rc]) else numeric(0)
+# One matching column per tier, otherwise leave the cell blank rather than guess.
+pick <- function(p) {
+  v <- unname(mlr_recall[grep(p, names(mlr_recall), ignore.case = TRUE)])
+  if (length(v) == 1L) sprintf("%.3f", v) else "—"
+}
+
+cv_get <- function(m, col) cv[[col]][cv$model == m]
+
+cv_comparison <- data.frame(
+  Model = c("LDA", "kNN", "MLR (selected)", "Random Forest", "SVM (RBF)",
+            "Majority-class baseline"),
+  `Selected configuration` = c(
+    "Equal priors, 2 discriminants", "k = 5, equal voting",
+    "Ridge, λ = 0.001, sqrt-inverse weights",
+    "mtry = 5, min node = 20, balanced weights",
+    "C = 16, σ = 0.0156, sqrt-inverse weights", "Always predict Meeting NQS"),
+  `Mean macro-F1` = f4(c(cv_get("LDA","mean_macro_f1"), cv_get("KNN","mean_macro_f1"),
+                         cv_get("MLR (selected)","mean_macro_f1"), cv_get("Random Forest","mean_macro_f1"),
+                         cv_get("SVM (RBF)","mean_macro_f1"), cv_get("Majority baseline","mean_macro_f1"))),
+  `Fold SD` = f4(c(cv_get("LDA","sd_macro_f1"), cv_get("KNN","sd_macro_f1"),
+                   cv_get("MLR (selected)","sd_macro_f1"), cv_get("Random Forest","sd_macro_f1"),
+                   cv_get("SVM (RBF)","sd_macro_f1"), cv_get("Majority baseline","sd_macro_f1"))),
+  `Mean accuracy` = f4(c(cv_get("LDA","mean_accuracy"), cv_get("KNN","mean_accuracy"),
+                         cv_get("MLR (selected)","mean_accuracy"), cv_get("Random Forest","mean_accuracy"),
+                         cv_get("SVM (RBF)","mean_accuracy"), cv_get("Majority baseline","mean_accuracy"))),
+  `Recall: Below`   = c("0.525", "0.044", pick("below"),   "0.290", "0.137", "0.000"),
+  `Recall: Meeting` = c("0.483", "0.897", pick("meeting"), "0.674", "0.829", "1.000"),
+  `Recall: Above`   = c("0.601", "0.310", pick("above"),   "0.605", "0.440", "0.000"),
+  check.names = FALSE
+)
+
+knitr::kable(cv_comparison, align = c("l", "l", rep("r", 6)),
+  caption = "Provider-grouped five-fold CV comparison of each candidate's selected configuration (training set only; not held-out test results).")
+```
+
+*Notes:* All macro-F1, SD and accuracy values come from the same five shared provider-grouped folds. kNN and Random Forest recalls are pooled out-of-fold values, whereas the others are fold means. The same folds were used for tuning and reporting, so these estimates are subject to selection optimism.
+
+Following comparison of the candidate models, the group selected the tuned ridge MLR as its final model. On the five shared provider-grouped folds it had the highest mean CV macro-F1 (`r f4(selected_mlr$mean_macro_f1)`, SD `r f4(selected_mlr$sd_macro_f1)`; mean accuracy `r pct2(selected_mlr$mean_accuracy)`), narrowly ahead of Random Forest (`r f4(selected_rf$mean_macro_f1)`) and the RBF SVM (`r f4(selected_svm$mean_macro_f1)`). These gaps are smaller than the fold-to-fold variation, so the ranking is descriptive rather than a statistical win. The selection criterion was the highest mean CV macro-F1, and the MLR also provides the interpretable coefficients used in the next section. Random Forest detected more Below NQS services in CV but at much lower accuracy (`r pct2(selected_rf$mean_accuracy)` against `r pct2(selected_mlr$mean_accuracy)` for the MLR). The choice was made from training-set cross-validation before test scores were computed; the caveat about earlier use of the test partition is given in the next subsection.
+
+```{r preview-selected, child='_selected-model-report.Rmd'}
+```
 
 ## Interpretation and Stakeholder Insights
 
 ### Interpretation of the selected MLR
 
-We inspected coefficients from the selected ridge MLR refitted using the **training partition only**. In the multinomial `glmnet` parameterisation (Friedman et al., 2010), a coefficient for one class is **not** by itself an odds ratio against Meeting NQS. For a predictor $x_j$, the log-odds contrast between two classes depends on the difference between the corresponding class coefficients, $\beta_{j,A}-\beta_{j,B}$. The signs below therefore refer to **Above versus Meeting NQS** or **Below versus Meeting NQS**, holding other encoded predictors fixed.
+We inspected coefficients from the selected ridge MLR (shared split, $\lambda = 0.001$) refitted using the **training partition only**. In the multinomial `glmnet` parameterisation (Friedman et al., 2010), a coefficient for one class is **not** by itself an odds ratio against Meeting NQS. For a predictor $x_j$, the log-odds contrast between two classes depends on the difference between the corresponding class coefficients, $\beta_{j,A}-\beta_{j,B}$. The signs below therefore refer to **Above versus Meeting NQS** or **Below versus Meeting NQS**, holding other encoded predictors fixed.
 
-For **Above NQS compared with Meeting NQS**, the coefficient differences were positive for service approval age (**+0.363**), provider approval age (**+0.325**) and standalone preschool status (**+0.298**), and negative for after-school-care status (**−0.499**). For **Below NQS compared with Meeting NQS**, recorded service approval conditions had a positive coefficient difference (**+0.202**), whereas provider service count had a negative difference (**−0.352**). Approval age is a proxy based on administrative dates, not necessarily operating experience. These findings describe conditional associations learned by the fitted model, **not causal effects** or a ranking of determinants of quality. Numeric features and dummy-coded indicators were processed and standardised, so the coefficients should not be interpreted as effects of a one-year increase or a raw 0-to-1 switch without accounting for the relevant scaling.
+For **Above NQS compared with Meeting NQS**, the largest coefficient differences among non-state predictors were positive for standalone preschool status (**+0.362**) and provider approval age (**+0.320**), and negative for after-school-care status (**−0.618**). The state indicators produced the largest negative differences (NSW **−0.602**, QLD **−0.578**, WA **−0.539**, VIC **−0.449** and NT **−0.328**), meaning that services in these states had lower modelled log-odds of Above versus Meeting NQS than services in the reference state category. For **Below NQS compared with Meeting NQS**, recorded service approval conditions had a positive coefficient difference (**+0.244**), whereas provider service count had a negative difference (**−0.298**); Victoria showed the largest state contrast (**−0.515**). Approval age is a proxy based on administrative dates, not necessarily operating experience. These findings describe conditional associations learned by the fitted model, **not causal effects** or a ranking of determinants of quality. Numeric features and dummy-coded indicators were processed and standardised, so the coefficients should not be interpreted as effects of a one-year increase or a raw 0-to-1 switch without accounting for the relevant scaling.
 
 ### Stakeholder implications and cautions
 
-For **regulators**, administrative predictors may support exploratory monitoring and help identify questions for further quality-review planning. However, the MLR's **10.2% Below NQS cross-validation recall** means that most services in this tier were not identified; it is therefore **unsuitable as a stand-alone screening or compliance decision tool**. For **service providers**, the associations can stimulate quality-improvement discussions but do not show that changing a particular administrative characteristic would raise an NQS rating. For **policy researchers**, this model offers a transparent benchmark for studying associations and testing whether richer information improves minority-class identification.
+For **regulators**, administrative predictors may support exploratory monitoring and help identify questions for further quality-review planning. However, the selected MLR detected only **`r pct1(test_recall["Below NQS"])` of Below NQS services on the held-out test partition** (`r test_cm_mat["Below NQS", "Below NQS"]` of `r sum(test_cm_mat["Below NQS", ])`), and its cross-validation recall for this tier was similarly low (10.2% on the original MLR split). This means that most services in this tier were not identified; it is therefore **unsuitable as a stand-alone screening or compliance decision tool**. For **service providers**, the associations can stimulate quality-improvement discussions but do not show that changing a particular administrative characteristic would raise an NQS rating. For **policy researchers**, this model offers a transparent benchmark for studying associations and testing whether richer information improves minority-class identification.
 
-Any practical use would require expert oversight, assessment of subgroup performance (including across states and service types), and validation beyond this register snapshot. Predictions should supplement, not replace, formal NQS assessment. **The held-out test results have not been supplied with this report draft**; the teammate responsible for final testing should insert those results in the next section before substantive claims about generalisation are made.
+Any practical use would require expert oversight, assessment of subgroup performance (including across states and service types), and validation beyond this register snapshot. Predictions should supplement, not replace, formal NQS assessment.
 
 # Final Results & Conclusion
 
+The research question asked how well administrative service and provider characteristics can classify an Australian education and care service's recorded NQS rating tier. The answer from this analysis is: **better than a majority-class guess on balanced performance, but not reliably enough for tier-level decisions**. Across the five candidate models, the best mean CV macro-F1 was close to `r f4(selected_mlr$mean_macro_f1)`, and the top three models (MLR, Random Forest and RBF SVM) were within about `r sprintf("%.2f", selected_mlr$mean_macro_f1 - selected_svm$mean_macro_f1)` of each other, compared with `r f4(cv_sel$mean_macro_f1[cv_sel$model == "Majority baseline"])` for the majority-class baseline. The selected ridge MLR scored a macro-F1 of **`r f4(mlr_test$macro_f1)`** on the `r format(mlr_test$n_test, big.mark = ",")`-service held-out test partition, against **`r f4(base_test$macro_f1)`** for the baseline. Its test accuracy (**`r pct2(mlr_test$accuracy)`**) was lower than the baseline's (**`r pct2(base_test$accuracy)`**) because the baseline predicts the dominant Meeting NQS tier every time. The test macro-F1 was lower than the mean CV macro-F1 of `r f4(selected_mlr$mean_macro_f1)`, which is consistent with cross-validation estimates being somewhat optimistic after tuning and selection on the same folds, although a single test split cannot confirm this.
+
+Performance differed sharply by tier. On the test partition the MLR identified **`r pct1(test_recall["Meeting NQS"])`** of Meeting NQS services and **`r pct1(test_recall["Above NQS"])`** of Above NQS services, but only **`r pct1(test_recall["Below NQS"])`** (`r test_cm_mat["Below NQS", "Below NQS"]` of `r sum(test_cm_mat["Below NQS", ])`) of Below NQS services. Models that detected more Below NQS services in cross-validation did so at a cost in overall accuracy: Random Forest identified 29.0% of them at `r pct1(selected_rf$mean_accuracy)` accuracy, and LDA with equal priors identified 52.5% at `r pct1(selected_lda$mean_accuracy)` accuracy. The MLR coefficients suggest that approval age, standalone preschool status, after-school-care status and provider service count are associated with tier differences, but these are conditional associations in one register snapshot, not causal effects.
+
+The model may therefore support exploratory monitoring and questions for quality-review planning, but it should not be used alone to screen services or to determine regulatory action. Several limitations apply. The outcome is highly imbalanced and treated as nominal, so the tiers' ordering is not used. The same folds were used for tuning and reporting, which can inflate cross-validation estimates. The test partition had been exposed in earlier model work, so the test results are descriptive estimates rather than a pristine independent confirmation. Future work could add richer predictors, use ordinal or cost-sensitive methods aimed at Below NQS recall, check subgroup performance across states and service types, and validate on a later register snapshot.
 
 # References
 
@@ -418,7 +498,7 @@ Kuhn, M., Wickham, H., & Hvitfeldt, E. (2026). *recipes: Preprocessing and featu
 
 Schliep, K., & Hechenbichler, K. (2025). *kknn: Weighted k-nearest neighbors* (Version 1.4.1) [Computer software]. <https://doi.org/10.32614/CRAN.package.kknn>
 
-# AI Use Statment
+# AI Use Statement
 I, Zixuan Zhao (SID: 550497901), acknowledge the use of OpenAI Codex as a supporting tool during the preparation of the KNN section of the final report, including checking text grammar and improving clarity, integrating R Markdown code, and checking reported results against existing model outputs. I carefully reviewed the related content for accuracy and take responsibility for the submitted work.
 
 I, Khoa Tran (SID: 550339069), acknowledge the use of Claude's Sonnet as a supporting tool during the validation of LDA model and cross-validation sections of the final report, including checking grammar, improving readability and formatting. I carefully reviewed the related content for accuracy and take responsibility for the submitted work.
@@ -516,4 +596,3 @@ knitr::include_graphics('../figures/models/svm_linear_tuning.png')
 ```
 
 </details>
-
