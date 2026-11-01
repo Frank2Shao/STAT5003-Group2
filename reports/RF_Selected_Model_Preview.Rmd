@@ -1,0 +1,24 @@
+---
+title: "Random Forest and Selected-Model Results"
+author: "Wenchen Zhong - final report contribution"
+output:
+  html_document:
+    code_folding: hide
+    self_contained: true
+---
+
+```{r contribution-options, include=FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+```
+
+## Random Forest
+
+```{r preview-rf, child='_rf-report.Rmd'}
+```
+
+```{r preview-selected, child='_selected-model-report.Rmd'}
+```
+
+## References
+
+Wright, M. N., & Ziegler, A. (2017). ranger: A fast implementation of random forests for high dimensional data in C++ and R. *Journal of Statistical Software, 77*(1), 1-17. https://doi.org/10.18637/jss.v077.i01

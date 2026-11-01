@@ -1,0 +1,52 @@
+## Selected Model and Test Evaluation
+
+```{r selected-report-load, include=FALSE}
+selected_root <- if (file.exists("outputs/selected_model/test_metrics.csv")) "." else ".."
+selected_csv <- function(path) read.csv(file.path(selected_root, path), check.names = FALSE)
+selection_cv <- selected_csv("outputs/selected_model/comparison_summary.csv")
+selected_metrics <- selected_csv("outputs/selected_model/test_metrics.csv")
+selected_classes <- selected_csv("outputs/selected_model/test_class_metrics.csv")
+selected_config <- selected_csv("outputs/mlr_shared/mlr_selected_config.csv")
+selected_mlr <- selection_cv[selection_cv$model == "MLR (shared split)", ]
+selected_rf <- selection_cv[selection_cv$model == "Random Forest", ]
+stopifnot(selection_cv$model[which.max(selection_cv$mean_macro_f1)] == "MLR (shared split)",
+          selected_config$lambda == 0.001, selected_config$weights == "sqrt_inverse")
+```
+
+Following the model comparison, MLR was selected using the highest mean training cross-validation Macro-F1: **`r sprintf('%.3f', selected_mlr$mean_macro_f1)`**, compared with **`r sprintf('%.3f', selected_rf$mean_macro_f1)`** for RF. The difference (`r sprintf('%.4f', selected_mlr$mean_macro_f1 - selected_rf$mean_macro_f1)`) is small relative to fold-to-fold variation and does not establish statistically significant superiority. Selection followed the prespecified Macro-F1 criterion rather than test accuracy.
+
+Before final evaluation, the original MLR functions and tuning grid were rerun with the shared split and five shared folds; the original MLR split differed from the group's split. The corrected ridge multinomial model used alpha = 0, lambda = 0.001 and square-root inverse-frequency class weights. Its preprocessing and weights were learned on training data, and it was refitted on all 13,497 training services. Model choice and parameters were fixed before computing these test results; no further tuning was based on test scores.
+
+```{r selected-report-test-table, echo=TRUE}
+test_table <- data.frame(
+  Model = selected_metrics$model,
+  `Macro-F1` = sprintf("%.3f", selected_metrics$macro_f1),
+  Accuracy = sprintf("%.2f%%", 100 * selected_metrics$accuracy),
+  check.names = FALSE
+)
+knitr::kable(test_table, caption = "Performance on the 3,663-service test partition.")
+```
+
+MLR improved Macro-F1 over the majority-class baseline, but its accuracy was lower. This reflects the imbalance of the outcome: predicting Meeting NQS for every test service already gives 76.28% accuracy. Higher accuracy alone would therefore not demonstrate useful performance across all tiers.
+
+```{r selected-report-confusion, echo=TRUE}
+test_cm <- selected_csv("outputs/selected_model/test_confusion_matrix.csv")
+tiers <- c("Below NQS", "Meeting NQS", "Above NQS")
+test_cm$Observed <- factor(test_cm$Observed, levels = tiers)
+test_cm$Predicted <- factor(test_cm$Predicted, levels = tiers)
+cm_table <- xtabs(Count ~ Observed + Predicted, data = test_cm)
+knitr::kable(as.matrix(cm_table),
+  caption = "MLR confusion matrix: rows are actual tiers; columns are predicted tiers.")
+```
+
+Only **20 of 248 Below NQS services (8.1%)** were detected; 209 were predicted as Meeting and 19 as Above NQS. Recall was 86.5% for Meeting and 39.5% for Above NQS. Consequently, this model may inform exploratory review but should not be used alone to identify below-standard services or determine regulatory action.
+
+**Evaluation limitation.** The corrected fit has no train/test provider overlap. However, the original MLR training data included 3,194 services from the shared test partition, and earlier LDA work also evaluated that partition. Refitting removes direct overlap in this model, but cannot undo prior project-level exposure. These results are therefore a qualified internal assessment, not a pristine independent confirmation of generalisation. Future work should reserve an untouched evaluation dataset before exploration and model development, ideally using a later data snapshot.
+
+The following folded scripts document the split correction, training-only tuning and fixed-model test evaluation. They are displayed without refitting or generating new test predictions during report rendering.
+
+```{r selected-report-refit-code, code=readLines(file.path(selected_root, 'R/11_mlr_shared_split.R')), eval=FALSE, echo=TRUE}
+```
+
+```{r selected-report-test-code, code=readLines(file.path(selected_root, 'R/12_selected_model_test.R')), eval=FALSE, echo=TRUE}
+```
