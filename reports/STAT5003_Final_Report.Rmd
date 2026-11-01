@@ -55,9 +55,15 @@ ggplot(mtcars, aes(x = wt, y = mpg)) +
 
 ## Random Forest
 
+```{r rf-report-section, child='_rf-report.Rmd'}
+```
+
 ## Linear SVM
 
 # Model Evaluation & Selection
+
+```{r selected-model-report-section, child='_selected-model-report.Rmd'}
+```
 
 # Final Results & Conclusion
 
@@ -65,6 +71,8 @@ ggplot(mtcars, aes(x = wt, y = mpg)) +
 # References
 
 List all the references used throughout the report using APA7 Style.
+
+Wright, M. N., & Ziegler, A. (2017). ranger: A fast implementation of random forests for high dimensional data in C++ and R. *Journal of Statistical Software, 77*(1), 1-17. https://doi.org/10.18637/jss.v077.i01
 
 # AI Use Statment
 If applicable,
