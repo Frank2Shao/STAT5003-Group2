@@ -127,6 +127,45 @@ MLR used a separate recipe with 19 selected predictors, normalisation and zero-v
 
 ## MLR
 
+### Model fitting and rationale
+
+Multinomial logistic regression (MLR) was fitted as an interpretable linear model for the three rating tiers. We used ridge-regularised multinomial regression (`glmnet`, `alpha = 0`) to stabilise estimation in the presence of related service and provider characteristics. MLR used the 19-predictor recipe described in *Preprocessing Recipes*, including within-fold median imputation, missing/novel-category handling, dummy encoding, zero-variance removal and normalisation. Unlike the kNN/SVM recipe, it did not log-transform `provider_service_count`. The service and provider identifiers and rating-derived fields were excluded from model inputs.
+
+To avoid information leakage, preprocessing was estimated separately within each training fold. As described above, all models used the provider-grouped 80/20 train/test split and five-fold provider-grouped cross-validation (CV) on the training set. The held-out test partition was not used to tune MLR.
+
+### MLR refinement and tuning
+
+Because **Meeting NQS accounted for 74.3%** of the services, an unweighted model could achieve high accuracy while overlooking smaller classes. We therefore assessed six ridge penalty values ($\lambda \in \{0.001, 0.003, 0.01, 0.03, 0.1, 0.3\}$) and three weighting schemes (no weights, square-root inverse-frequency weights and capped inverse-frequency weights): **18 configurations** in total. Each was evaluated on the same five provider-grouped folds, with mean **macro-F1** as the primary selection metric. The macro-F1 calculation included all three classes, assigning an F1 of zero to any class never predicted by a candidate.
+
+The selected MLR used **$\lambda = 0.003$** and **square-root inverse-frequency class weights**. It achieved a mean CV macro-F1 of **0.4859** (SD **0.0151**) and mean CV accuracy of **72.92%**. The baseline achieved macro-F1 **0.4003** and accuracy **75.47%**. Thus, tuning improved macro-F1 by **0.0856** (approximately **21.4% relative**) at the cost of 2.55 percentage points of accuracy. This trade-off is consistent with placing more emphasis on minority rating tiers.
+
+```{r mlr-cv-results, echo=TRUE}
+# Five-fold provider-grouped CV results; all three NQS classes included in macro-F1.
+mlr_cv_summary <- data.frame(
+  Model = c('Unweighted baseline MLR', 'Tuned ridge MLR'),
+  `Mean macro-F1` = c(0.4003, 0.4859),
+  `Mean accuracy` = c(0.7547, 0.7292),
+  check.names = FALSE
+)
+knitr::kable(mlr_cv_summary, digits = 4,
+             caption = 'MLR performance on provider-grouped cross-validation (not the held-out test set).')
+```
+
+### Class-specific performance
+
+Despite the improvement in macro-F1, the tuned model performed unevenly across the three classes. Mean CV recall was **10.2%** for Below NQS, **84.9%** for Meeting NQS and **49.3%** for Above NQS; mean class-wise F1 was approximately **0.144**, **0.827** and **0.487**, respectively. The model therefore missed most Below NQS services. Its useful overall discrimination should not be interpreted as reliable identification of potentially underperforming services.
+
+```{r mlr-class-results, echo=TRUE}
+mlr_by_class <- data.frame(
+  `Rating tier` = c('Below NQS', 'Meeting NQS', 'Above NQS'),
+  `Mean recall` = c(0.102, 0.849, 0.493),
+  `Mean F1` = c(0.144, 0.827, 0.487),
+  check.names = FALSE
+)
+knitr::kable(mlr_by_class, digits = 3,
+             caption = 'Class-specific mean CV metrics for the selected MLR.')
+```
+
 ## Random Forest
 
 ## Support Vector Machines
@@ -174,6 +213,24 @@ knitr::include_graphics('../figures/models/svm_rbf_targeted_tuning.png')
 Compared with the weighted Linear SVM, the weighted RBF SVM increased mean cross-validation Macro-F1 from 0.4398 to 0.4754 and improved Below NQS recall from 0.0428 to 0.1369. Accuracy and Above NQS recall decreased slightly, while Below NQS remained the most difficult class to identify. All SVM results were based on provider-grouped cross-validation, and the held-out test set was not used during tuning.
 
 # Model Evaluation & Selection
+
+## Selection of the final model
+
+Following comparison of the candidate models, the group selected the **tuned ridge MLR** as its final model. Its documented training-set five-fold provider-grouped CV performance was **macro-F1 0.4859** (SD **0.0151**) with **72.92% accuracy**. Model selection was carried out without consulting the held-out test set. Other models' cross-validation comparisons and the rationale for the group decision should be finalised here by the model-comparison lead; the SVM results above are not, on their own, a complete comparison of all five candidate models.
+
+## Interpretation and Stakeholder Insights
+
+### Interpretation of the selected MLR
+
+We inspected coefficients from the selected ridge MLR refitted using the **training partition only**. In the multinomial `glmnet` parameterisation, a coefficient for one class is **not** by itself an odds ratio against Meeting NQS. For a predictor $x_j$, the log-odds contrast between two classes depends on the difference between the corresponding class coefficients, $\beta_{j,A}-\beta_{j,B}$. The signs below therefore refer to **Above versus Meeting NQS** or **Below versus Meeting NQS**, holding other encoded predictors fixed.
+
+For **Above NQS compared with Meeting NQS**, the coefficient differences were positive for service approval age (**+0.363**), provider approval age (**+0.325**) and standalone preschool status (**+0.298**), and negative for after-school-care status (**−0.499**). For **Below NQS compared with Meeting NQS**, recorded service approval conditions had a positive coefficient difference (**+0.202**), whereas provider service count had a negative difference (**−0.352**). Approval age is a proxy based on administrative dates, not necessarily operating experience. These findings describe conditional associations learned by the fitted model, **not causal effects** or a ranking of determinants of quality. Numeric features and dummy-coded indicators were processed and standardised, so the coefficients should not be interpreted as effects of a one-year increase or a raw 0-to-1 switch without accounting for the relevant scaling.
+
+### Stakeholder implications and cautions
+
+For **regulators**, administrative predictors may support exploratory monitoring and help identify questions for further quality-review planning. However, the MLR's **10.2% Below NQS cross-validation recall** means that most services in this tier were not identified; it is therefore **unsuitable as a stand-alone screening or compliance decision tool**. For **service providers**, the associations can stimulate quality-improvement discussions but do not show that changing a particular administrative characteristic would raise an NQS rating. For **policy researchers**, this model offers a transparent benchmark for studying associations and testing whether richer information improves minority-class identification.
+
+Any practical use would require expert oversight, assessment of subgroup performance (including across states and service types), and validation beyond this register snapshot. Predictions should supplement, not replace, formal NQS assessment. **The held-out test results have not been supplied with this report draft**; the teammate responsible for final testing should insert those results in the next section before substantive claims about generalisation are made.
 
 # Final Results & Conclusion
 
