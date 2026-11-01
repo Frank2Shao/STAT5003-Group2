@@ -159,6 +159,10 @@ window.Quarto = {
   height: auto !important;
   margin: auto;
 }
+#references > p {
+  margin-left: 1.27cm;
+  text-indent: -1.27cm;
+}
 @media print {
   #exploratory-data-analysis-eda .quarto-layout-row { display: flex !important; flex-wrap: nowrap !important; }
   #exploratory-data-analysis-eda .quarto-layout-cell { width: 48% !important; }
@@ -166,7 +170,7 @@ window.Quarto = {
 </style>
 <section id="introduction" class="level1">
 <h1>Introduction</h1>
-<p>Australian education and care services are assessed against the National Quality Standard (NQS) under the National Quality Framework. The assessment process supports service quality and continuous improvement (https://www.acecqa.gov.au/assessment/assessment-and-rating-process). The Australian Children’s Education &amp; Care Quality Authority (ACECQA) also publishes national registers containing information about services and providers (https://www.acecqa.gov.au/resources/national-registers). Examining these records may provide useful information for regulatory planning, service improvement and policy research.</p>
+<p>Australian education and care services are assessed against the National Quality Standard (NQS) under the National Quality Framework by state and territory regulatory authorities (Australian Children's Education &amp; Care Quality Authority [ACECQA], n.d.-a). ACECQA also publishes national registers containing information about services and providers (ACECQA, n.d.-b). Examining these records may provide useful information for regulatory planning, service improvement and policy research.</p>
 </section>
 <section id="problem-framing-research-question" class="level1">
 <h1>Problem Framing &amp; Research Question</h1>
@@ -189,8 +193,8 @@ window.Quarto = {
 <span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>          <span class="fu">nrow</span>(analysis_data) <span class="sc">==</span> <span class="dv">17160</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
-<p>This project used two ACECQA national registers downloaded on 18 September 2026: the Education services register and the Approved providers register (https://www.acecqa.gov.au/resources/national-registers). The services register contained 18,183 records and 98 variables, meeting the Large dataset requirement. The providers register contained 10,095 records and 10 variables. Missing ratings, capacity and operating schedules also made the data Messy.</p>
-<p>Each observation represented a service. The two registers were linked by Provider Approval Number, meeting the Integrated dataset requirement. IDs were unique in their respective registers, and every service was matched to a provider. After removing 1,023 services without a rating, the final dataset contained 17,160 services from 6,885 providers and 28 candidate predictors. Ratings were grouped into three classes, meeting the Multi-class requirement: Significant Improvement Required and Working Towards NQS became Below NQS; Meeting NQS remained unchanged; and Exceeding NQS and Excellent became Above NQS.</p>
+<p>This project used two ACECQA national registers downloaded on 18 September 2026: the Education services register and the Approved providers register (ACECQA, n.d.-b). The services register contained 18,183 records and 98 variables, meeting the Large dataset requirement. The providers register contained 10,095 records and 10 variables. Missing ratings, capacity and operating schedules also made the data Messy.</p>
+<p>Each observation represented a service. The two registers were linked by Provider Approval Number, meeting the Integrated dataset requirement. IDs were unique in their respective registers, and every service was matched to a provider. After removing 1,023 services without a rating, the final dataset contained 17,160 services from 6,885 providers and 28 candidate predictors. Using the published NQS rating levels (ACECQA, n.d.-a), we grouped ratings into three classes, meeting the Multi-class requirement: Significant Improvement Required and Working Towards NQS became Below NQS; Meeting NQS remained unchanged; and Exceeding NQS and Excellent became Above NQS.</p>
 </section>
 <section id="exploratory-data-analysis-eda" class="level1">
 <h1>Exploratory Data Analysis (EDA)</h1>
@@ -268,6 +272,7 @@ window.Quarto = {
 </section>
 <section id="preprocessing-recipes" class="level2">
 <h2 class="anchored" data-anchor-id="preprocessing-recipes">Preprocessing Recipes</h2>
+<p>The shared preprocessing pipelines were implemented with <code>recipes</code> (Kuhn et al., 2026).</p>
 <p>Missing values in numerical variables were replaced with the median calculated from the current training data. No separate missingness indicators were created for structural missing values. Missing values in categorical variables were labelled as Unknown. Categories that appeared for the first time in validation or test data were labelled as Novel. Categories representing less than 1% of the training data were grouped as Other.</p>
 <p>Logical variables were converted to No/Yes categories, categorical variables were dummy encoded, and predictors with no or very little variation were removed.</p>
 <p>kNN and SVM used the shared scaled recipe, which applied a <span class="math inline">\(\log(x+1)\)</span> transformation to provider_service_count and normalised numerical predictors. LDA used the same recipe and additionally removed linear combinations and numerical predictors with correlations above 0.9. Random Forest used the tree recipe, which also applied the log transformation but did not normalise numerical predictors.</p>
@@ -894,7 +899,7 @@ window.Quarto = {
 <h2 class="anchored" data-anchor-id="knn">kNN</h2>
 <section id="model-rationale-and-fitting" class="level3">
 <h3 class="anchored" data-anchor-id="model-rationale-and-fitting">Model rationale and fitting</h3>
-<p>K-nearest neighbours (KNN) was included to assess whether services with similar administrative and provider profiles tend to share an NQS rating tier. The overlap between individual numerical predictors observed in EDA motivates considering their combined local structure. KNN assigns a class using nearby training observations, allowing nonlinear decision boundaries without specifying a parametric form. Below NQS, Meeting NQS and Above NQS were treated as nominal classes; their ordering was not explicitly modelled.</p>
+<p>K-nearest neighbours (KNN) was included to assess whether services with similar administrative and provider profiles tend to share an NQS rating tier. The overlap between individual numerical predictors observed in EDA motivates considering their combined local structure. KNN assigns a class using nearby training observations, allowing nonlinear decision boundaries without specifying a parametric form (Schliep &amp; Hechenbichler, 2025). Below NQS, Meeting NQS and Above NQS were treated as nominal classes; their ordering was not explicitly modelled.</p>
 <p>The common provider-grouped split contained <strong>13,497 training services</strong> and <strong>3,663 held-out services</strong>. KNN used the same five provider-grouped training folds as the other candidate models, keeping services from each provider together. This reduces leakage from shared provider characteristics and evaluates transfer to providers absent from the corresponding training partition. Identifiers and rating-derived fields were excluded.</p>
 <p>The shared <code>recipes</code> preprocessing pipeline (Kuhn et al., 2026) handled missing and novel categorical levels, pooled levels below 1%, median-imputed numerical predictors, and log(1+x)-transformed provider service count. Numerical predictors were standardised before categorical dummy encoding, followed by near-zero-variance filtering. Scaling prevents variables measured in larger units from dominating Euclidean distances. Dummy columns were not subsequently standardised. Crucially, preprocessing parameters were estimated separately within each fold’s training partition and then applied to validation data. The <code>kknn</code> engine’s additional scaling was disabled (Schliep &amp; Hechenbichler, 2025).</p>
 </section>
@@ -1186,7 +1191,7 @@ window.Quarto = {
 <h2 class="anchored" data-anchor-id="mlr">MLR</h2>
 <section id="model-fitting-and-rationale" class="level3">
 <h3 class="anchored" data-anchor-id="model-fitting-and-rationale">Model fitting and rationale</h3>
-<p>Multinomial logistic regression (MLR) was fitted as an interpretable linear model for the three rating tiers. We used ridge-regularised multinomial regression (<code>glmnet</code>, <code>alpha = 0</code>) to stabilise estimation in the presence of related service and provider characteristics. MLR used the 19-predictor recipe described in <em>Preprocessing Recipes</em>, including within-fold median imputation, missing/novel-category handling, dummy encoding, zero-variance removal and normalisation. Unlike the kNN/SVM recipe, it did not log-transform <code>provider_service_count</code>. The service and provider identifiers and rating-derived fields were excluded from model inputs.</p>
+<p>Multinomial logistic regression (MLR) was fitted as an interpretable linear model for the three rating tiers. We used ridge-regularised multinomial regression (<code>glmnet</code>, <code>alpha = 0</code>; Friedman et al., 2010) to stabilise estimation in the presence of related service and provider characteristics. MLR used the 19-predictor recipe described in <em>Preprocessing Recipes</em>, including within-fold median imputation, missing/novel-category handling, dummy encoding, zero-variance removal and normalisation. Unlike the kNN/SVM recipe, it did not log-transform <code>provider_service_count</code>. The service and provider identifiers and rating-derived fields were excluded from model inputs.</p>
 <p>To avoid information leakage, preprocessing was estimated separately within each training fold. As described above, all models used the provider-grouped 80/20 train/test split and five-fold provider-grouped cross-validation (CV) on the training set. The held-out test partition was not used to tune MLR.</p>
 </section>
 <section id="mlr-refinement-and-tuning" class="level3">
@@ -1286,7 +1291,7 @@ window.Quarto = {
 <h2 class="anchored" data-anchor-id="support-vector-machines">Support Vector Machines</h2>
 <section id="linear-svm-fitting-tuning-and-improvement" class="level3">
 <h3 class="anchored" data-anchor-id="linear-svm-fitting-tuning-and-improvement">Linear SVM Fitting, Tuning and Improvement</h3>
-<p>Linear SVM uses a linear decision boundary to separate the three rating tiers. It used the scaled recipe and the same five-fold provider-grouped cross-validation described earlier.</p>
+<p>Linear SVM uses a linear decision boundary to separate the three rating tiers (Karatzoglou et al., 2004). It used the scaled recipe and the same five-fold provider-grouped cross-validation described earlier.</p>
 <p>The unweighted and weighted Linear SVMs were tested using the same <span class="math inline">\(C\)</span> grid: {0.0078125, 0.03125, 0.0625, 0.125, 0.25, 0.5, 2, 8}. All unweighted Linear SVM candidates predicted every service as Meeting NQS. Their Macro-F1 and class-specific recalls were therefore almost identical to the majority-class baseline. Since <span class="math inline">\(C=8\)</span> did not improve Macro-F1 or minority-class recall compared with <span class="math inline">\(C=2\)</span>, the unweighted Linear SVM search was not extended further. Under the 0.001 tie-break rule, the smallest candidate, <span class="math inline">\(C=0.0078125\)</span>, was retained.</p>
 <p>Square-root inverse-frequency class weights were then added to give more importance to errors in the two smaller classes. This prevented the Linear SVM from predicting only the majority class and increased its mean cross-validation Macro-F1 from 0.2829 to 0.4398. Within the same planned grid, the weighted Linear SVM achieved its highest mean cross-validation Macro-F1 at <span class="math inline">\(C=8\)</span>. This candidate was used as the starting point for RBF refinement.</p>
 <p>Detailed code as follows.</p>
@@ -2703,7 +2708,7 @@ window.Quarto = {
 </section>
 <section id="rbf-svm-fitting-tuning-and-improvement" class="level3">
 <h3 class="anchored" data-anchor-id="rbf-svm-fitting-tuning-and-improvement">RBF SVM Fitting, Tuning and Improvement</h3>
-<p>RBF SVM was considered because it can represent nonlinear relationships between the predictors and rating tiers. The selected weighted Linear SVM value, <span class="math inline">\(C=8\)</span>, was first used as the anchor for sigma tuning.</p>
+<p>RBF SVM was considered because it can represent nonlinear relationships between the predictors and rating tiers (Karatzoglou et al., 2004). The selected weighted Linear SVM value, <span class="math inline">\(C=8\)</span>, was first used as the anchor for sigma tuning.</p>
 <p>Three sigma values were compared: {0.015625, 0.03125, 0.0625}. Sigma was selected using mean cross-validation Macro-F1; when results were within 0.001, the smaller sigma was preferred. This selected <span class="math inline">\(\sigma=0.015625\)</span>.</p>
 <p>With sigma fixed, the targeted <span class="math inline">\(C\)</span> grid {0.03125, 0.125, 0.5, 2, 4, 8, 16, 32} was tested. The highest mean cross-validation Macro-F1 was achieved at <span class="math inline">\(C=16\)</span>, and performance decreased at <span class="math inline">\(C=32\)</span>.</p>
 <p>Detailed code as follows.</p>
@@ -3807,7 +3812,7 @@ window.Quarto = {
 <h2 class="anchored" data-anchor-id="interpretation-and-stakeholder-insights">Interpretation and Stakeholder Insights</h2>
 <section id="interpretation-of-the-selected-mlr" class="level3">
 <h3 class="anchored" data-anchor-id="interpretation-of-the-selected-mlr">Interpretation of the selected MLR</h3>
-<p>We inspected coefficients from the selected ridge MLR refitted using the <strong>training partition only</strong>. In the multinomial <code>glmnet</code> parameterisation, a coefficient for one class is <strong>not</strong> by itself an odds ratio against Meeting NQS. For a predictor <span class="math inline">\(x_j\)</span>, the log-odds contrast between two classes depends on the difference between the corresponding class coefficients, <span class="math inline">\(\beta_{j,A}-\beta_{j,B}\)</span>. The signs below therefore refer to <strong>Above versus Meeting NQS</strong> or <strong>Below versus Meeting NQS</strong>, holding other encoded predictors fixed.</p>
+<p>We inspected coefficients from the selected ridge MLR refitted using the <strong>training partition only</strong>. In the multinomial <code>glmnet</code> parameterisation (Friedman et al., 2010), a coefficient for one class is <strong>not</strong> by itself an odds ratio against Meeting NQS. For a predictor <span class="math inline">\(x_j\)</span>, the log-odds contrast between two classes depends on the difference between the corresponding class coefficients, <span class="math inline">\(\beta_{j,A}-\beta_{j,B}\)</span>. The signs below therefore refer to <strong>Above versus Meeting NQS</strong> or <strong>Below versus Meeting NQS</strong>, holding other encoded predictors fixed.</p>
 <p>For <strong>Above NQS compared with Meeting NQS</strong>, the coefficient differences were positive for service approval age (<strong>+0.363</strong>), provider approval age (<strong>+0.325</strong>) and standalone preschool status (<strong>+0.298</strong>), and negative for after-school-care status (<strong>−0.499</strong>). For <strong>Below NQS compared with Meeting NQS</strong>, recorded service approval conditions had a positive coefficient difference (<strong>+0.202</strong>), whereas provider service count had a negative difference (<strong>−0.352</strong>). Approval age is a proxy based on administrative dates, not necessarily operating experience. These findings describe conditional associations learned by the fitted model, <strong>not causal effects</strong> or a ranking of determinants of quality. Numeric features and dummy-coded indicators were processed and standardised, so the coefficients should not be interpreted as effects of a one-year increase or a raw 0-to-1 switch without accounting for the relevant scaling.</p>
 </section>
 <section id="stakeholder-implications-and-cautions" class="level3">
@@ -3822,14 +3827,18 @@ window.Quarto = {
 </section>
 <section id="references" class="level1">
 <h1>References</h1>
-<p>Kuhn, M., Wickham, H., &amp; Hvitfeldt, E. (2026). <em>recipes: Preprocessing and feature engineering steps for modeling</em> (Version 1.4.0) [Computer software]. Comprehensive R Archive Network. https://doi.org/10.32614/CRAN.package.recipes</p>
-<p>Schliep, K., &amp; Hechenbichler, K. (2025). <em>kknn: Weighted k-nearest neighbors</em> (Version 1.4.1) [Computer software]. Comprehensive R Archive Network. https://doi.org/10.32614/CRAN.package.kknn</p>
-<p>Wright, M. N., &amp; Ziegler, A. (2017). ranger: A fast implementation of random forests for high dimensional data in C++ and R. <em>Journal of Statistical Software, 77</em>(1), 1-17. https://doi.org/10.18637/jss.v077.i01</p>
+<p>Australian Children's Education &amp; Care Quality Authority. (n.d.-a). <em>Assessment and rating process</em>. <a href="https://www.acecqa.gov.au/assessment/assessment-and-rating-process" class="uri">https://www.acecqa.gov.au/assessment/assessment-and-rating-process</a></p>
+<p>Australian Children's Education &amp; Care Quality Authority. (n.d.-b). <em>National registers</em>. <a href="https://www.acecqa.gov.au/resources/national-registers" class="uri">https://www.acecqa.gov.au/resources/national-registers</a></p>
+<p>Friedman, J. H., Hastie, T., &amp; Tibshirani, R. (2010). Regularization paths for generalized linear models via coordinate descent. <em>Journal of Statistical Software, 33</em>(1), 1–22. <a href="https://doi.org/10.18637/jss.v033.i01" class="uri">https://doi.org/10.18637/jss.v033.i01</a></p>
+<p>Karatzoglou, A., Smola, A., Hornik, K., &amp; Zeileis, A. (2004). kernlab: An S4 package for kernel methods in R. <em>Journal of Statistical Software, 11</em>(9), 1–20. <a href="https://doi.org/10.18637/jss.v011.i09" class="uri">https://doi.org/10.18637/jss.v011.i09</a></p>
+<p>Kuhn, M., Wickham, H., &amp; Hvitfeldt, E. (2026). <em>recipes: Preprocessing and feature engineering steps for modeling</em> (Version 1.4.0) [Computer software]. <a href="https://doi.org/10.32614/CRAN.package.recipes" class="uri">https://doi.org/10.32614/CRAN.package.recipes</a></p>
+<p>Schliep, K., &amp; Hechenbichler, K. (2025). <em>kknn: Weighted k-nearest neighbors</em> (Version 1.4.1) [Computer software]. <a href="https://doi.org/10.32614/CRAN.package.kknn" class="uri">https://doi.org/10.32614/CRAN.package.kknn</a></p>
 </section>
 <section id="ai-use-statment" class="level1">
 <h1>AI Use Statment</h1>
 <p>I, Zixuan Zhao (SID: 550497901), acknowledge the use of OpenAI Codex as a supporting tool during the preparation of the KNN section of the final report, including checking text grammar and improving clarity, integrating R Markdown code, and checking reported results against existing model outputs. I carefully reviewed the related content for accuracy and take responsibility for the submitted work.</p>
 <p>I, Khoa Tran (SID: 550339069), acknowledge the use of Claude’s Sonnet as a supporting tool during the validation of LDA model and cross-validation sections of the final report, including checking grammar, improving readability and formatting. I carefully reviewed the related content for accuracy and take responsibility for the submitted work.</p>
+<p>I, Yuzhi Shao (SID: 550139687), acknowledge the use of OpenAI Codex as a supporting tool during the preparation of the SVM section of the final report, including checking text grammar and shortening text, integrating R Markdown code, and checking reported results against existing model outputs. I carefully reviewed the related content for accuracy and take responsibility for the submitted work.</p>
 </section>
 <section id="appendix" class="level1">
 <h1>Appendix</h1>

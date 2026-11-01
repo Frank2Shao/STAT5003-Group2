@@ -29,6 +29,10 @@ output:
   height: auto !important;
   margin: auto;
 }
+#references > p {
+  margin-left: 1.27cm;
+  text-indent: -1.27cm;
+}
 @media print {
   #exploratory-data-analysis-eda .quarto-layout-row { display: flex !important; flex-wrap: nowrap !important; }
   #exploratory-data-analysis-eda .quarto-layout-cell { width: 48% !important; }
@@ -47,7 +51,7 @@ select <- dplyr::select
 
 # Introduction
 
-Australian education and care services are assessed against the National Quality Standard (NQS) under the National Quality Framework. The assessment process supports service quality and continuous improvement (https://www.acecqa.gov.au/assessment/assessment-and-rating-process). The Australian Children’s Education & Care Quality Authority (ACECQA) also publishes national registers containing information about services and providers (https://www.acecqa.gov.au/resources/national-registers). Examining these records may provide useful information for regulatory planning, service improvement and policy research.
+Australian education and care services are assessed against the National Quality Standard (NQS) under the National Quality Framework by state and territory regulatory authorities (Australian Children&#39;s Education & Care Quality Authority [ACECQA], n.d.-a). ACECQA also publishes national registers containing information about services and providers (ACECQA, n.d.-b). Examining these records may provide useful information for regulatory planning, service improvement and policy research.
 
 # Problem Framing & Research Question
 
@@ -69,9 +73,9 @@ stopifnot(linkage_checks$value[linkage_checks$measure == 'Service rows unmatched
           nrow(analysis_data) == 17160)
 ```
 
-This project used two ACECQA national registers downloaded on 18 September 2026: the Education services register and the Approved providers register (https://www.acecqa.gov.au/resources/national-registers). The services register contained 18,183 records and 98 variables, meeting the Large dataset requirement. The providers register contained 10,095 records and 10 variables. Missing ratings, capacity and operating schedules also made the data Messy.
+This project used two ACECQA national registers downloaded on 18 September 2026: the Education services register and the Approved providers register (ACECQA, n.d.-b). The services register contained 18,183 records and 98 variables, meeting the Large dataset requirement. The providers register contained 10,095 records and 10 variables. Missing ratings, capacity and operating schedules also made the data Messy.
 
-Each observation represented a service. The two registers were linked by Provider Approval Number, meeting the Integrated dataset requirement. IDs were unique in their respective registers, and every service was matched to a provider. After removing 1,023 services without a rating, the final dataset contained 17,160 services from 6,885 providers and 28 candidate predictors. Ratings were grouped into three classes, meeting the Multi-class requirement: Significant Improvement Required and Working Towards NQS became Below NQS; Meeting NQS remained unchanged; and Exceeding NQS and Excellent became Above NQS.
+Each observation represented a service. The two registers were linked by Provider Approval Number, meeting the Integrated dataset requirement. IDs were unique in their respective registers, and every service was matched to a provider. After removing 1,023 services without a rating, the final dataset contained 17,160 services from 6,885 providers and 28 candidate predictors. Using the published NQS rating levels (ACECQA, n.d.-a), we grouped ratings into three classes, meeting the Multi-class requirement: Significant Improvement Required and Working Towards NQS became Below NQS; Meeting NQS remained unchanged; and Exceeding NQS and Excellent became Above NQS.
 
 # Exploratory Data Analysis (EDA)
 
@@ -124,6 +128,8 @@ Before splitting, approval dates and operating records were used to create age a
 Because a provider may operate several services, we split the data by provider, with approximately 80% for training and 20% for testing. The training set contained 13,497 services from 5,509 providers; the test set contained 3,663 services from 1,376 providers. Each provider's most common rating tier was used for approximate stratification. Five-fold cross-validation also kept services from the same provider together. Preprocessing values were calculated using each fold's training data and then applied to its validation data.
 
 ## Preprocessing Recipes
+
+The shared preprocessing pipelines were implemented with `recipes` (Kuhn et al., 2026).
 
 Missing values in numerical variables were replaced with the median calculated from the current training data. No separate missingness indicators were created for structural missing values. Missing values in categorical variables were labelled as Unknown. Categories that appeared for the first time in validation or test data were labelled as Novel. Categories representing less than 1% of the training data were grouped as Other.
 
@@ -214,7 +220,7 @@ knn_dir <- file.path(knn_root, "outputs", "knn")
 
 ### Model rationale and fitting
 
-K-nearest neighbours (KNN) was included to assess whether services with similar administrative and provider profiles tend to share an NQS rating tier. The overlap between individual numerical predictors observed in EDA motivates considering their combined local structure. KNN assigns a class using nearby training observations, allowing nonlinear decision boundaries without specifying a parametric form. Below NQS, Meeting NQS and Above NQS were treated as nominal classes; their ordering was not explicitly modelled.
+K-nearest neighbours (KNN) was included to assess whether services with similar administrative and provider profiles tend to share an NQS rating tier. The overlap between individual numerical predictors observed in EDA motivates considering their combined local structure. KNN assigns a class using nearby training observations, allowing nonlinear decision boundaries without specifying a parametric form (Schliep & Hechenbichler, 2025). Below NQS, Meeting NQS and Above NQS were treated as nominal classes; their ordering was not explicitly modelled.
 
 The common provider-grouped split contained **13,497 training services** and **3,663 held-out services**. KNN used the same five provider-grouped training folds as the other candidate models, keeping services from each provider together. This reduces leakage from shared provider characteristics and evaluates transfer to providers absent from the corresponding training partition. Identifiers and rating-derived fields were excluded.
 
@@ -277,7 +283,7 @@ The complete KNN script is displayed below. It includes fold-wise preprocessing,
 
 ### Model fitting and rationale
 
-Multinomial logistic regression (MLR) was fitted as an interpretable linear model for the three rating tiers. We used ridge-regularised multinomial regression (`glmnet`, `alpha = 0`) to stabilise estimation in the presence of related service and provider characteristics. MLR used the 19-predictor recipe described in *Preprocessing Recipes*, including within-fold median imputation, missing/novel-category handling, dummy encoding, zero-variance removal and normalisation. Unlike the kNN/SVM recipe, it did not log-transform `provider_service_count`. The service and provider identifiers and rating-derived fields were excluded from model inputs.
+Multinomial logistic regression (MLR) was fitted as an interpretable linear model for the three rating tiers. We used ridge-regularised multinomial regression (`glmnet`, `alpha = 0`; Friedman et al., 2010) to stabilise estimation in the presence of related service and provider characteristics. MLR used the 19-predictor recipe described in *Preprocessing Recipes*, including within-fold median imputation, missing/novel-category handling, dummy encoding, zero-variance removal and normalisation. Unlike the kNN/SVM recipe, it did not log-transform `provider_service_count`. The service and provider identifiers and rating-derived fields were excluded from model inputs.
 
 To avoid information leakage, preprocessing was estimated separately within each training fold. As described above, all models used the provider-grouped 80/20 train/test split and five-fold provider-grouped cross-validation (CV) on the training set. The held-out test partition was not used to tune MLR.
 
@@ -319,7 +325,7 @@ knitr::kable(mlr_by_class, digits = 3,
 ## Support Vector Machines
 
 ### Linear SVM Fitting, Tuning and Improvement
-Linear SVM uses a linear decision boundary to separate the three rating tiers. It used the scaled recipe and the same five-fold provider-grouped cross-validation described earlier.
+Linear SVM uses a linear decision boundary to separate the three rating tiers (Karatzoglou et al., 2004). It used the scaled recipe and the same five-fold provider-grouped cross-validation described earlier.
 
 The unweighted and weighted Linear SVMs were tested using the same $C$ grid: {0.0078125, 0.03125, 0.0625, 0.125, 0.25, 0.5, 2, 8}. All unweighted Linear SVM candidates predicted every service as Meeting NQS. Their Macro-F1 and class-specific recalls were therefore almost identical to the majority-class baseline. Since $C=8$ did not improve Macro-F1 or minority-class recall compared with $C=2$, the unweighted Linear SVM search was not extended further. Under the 0.001 tie-break rule, the smallest candidate, $C=0.0078125$, was retained.
 
@@ -332,7 +338,7 @@ Detailed code as follows.
 
 ### RBF SVM Fitting, Tuning and Improvement
 
-RBF SVM was considered because it can represent nonlinear relationships between the predictors and rating tiers. The selected weighted Linear SVM value, $C=8$, was first used as the anchor for sigma tuning.
+RBF SVM was considered because it can represent nonlinear relationships between the predictors and rating tiers (Karatzoglou et al., 2004). The selected weighted Linear SVM value, $C=8$, was first used as the anchor for sigma tuning.
 
 Three sigma values were compared: {0.015625, 0.03125, 0.0625}. Sigma was selected using mean cross-validation Macro-F1; when results were within 0.001, the smaller sigma was preferred. This selected $\sigma=0.015625$.
 
@@ -385,7 +391,7 @@ Following comparison of the candidate models, the group selected the **tuned rid
 
 ### Interpretation of the selected MLR
 
-We inspected coefficients from the selected ridge MLR refitted using the **training partition only**. In the multinomial `glmnet` parameterisation, a coefficient for one class is **not** by itself an odds ratio against Meeting NQS. For a predictor $x_j$, the log-odds contrast between two classes depends on the difference between the corresponding class coefficients, $\beta_{j,A}-\beta_{j,B}$. The signs below therefore refer to **Above versus Meeting NQS** or **Below versus Meeting NQS**, holding other encoded predictors fixed.
+We inspected coefficients from the selected ridge MLR refitted using the **training partition only**. In the multinomial `glmnet` parameterisation (Friedman et al., 2010), a coefficient for one class is **not** by itself an odds ratio against Meeting NQS. For a predictor $x_j$, the log-odds contrast between two classes depends on the difference between the corresponding class coefficients, $\beta_{j,A}-\beta_{j,B}$. The signs below therefore refer to **Above versus Meeting NQS** or **Below versus Meeting NQS**, holding other encoded predictors fixed.
 
 For **Above NQS compared with Meeting NQS**, the coefficient differences were positive for service approval age (**+0.363**), provider approval age (**+0.325**) and standalone preschool status (**+0.298**), and negative for after-school-care status (**−0.499**). For **Below NQS compared with Meeting NQS**, recorded service approval conditions had a positive coefficient difference (**+0.202**), whereas provider service count had a negative difference (**−0.352**). Approval age is a proxy based on administrative dates, not necessarily operating experience. These findings describe conditional associations learned by the fitted model, **not causal effects** or a ranking of determinants of quality. Numeric features and dummy-coded indicators were processed and standardised, so the coefficients should not be interpreted as effects of a one-year increase or a raw 0-to-1 switch without accounting for the relevant scaling.
 
@@ -400,16 +406,24 @@ Any practical use would require expert oversight, assessment of subgroup perform
 
 # References
 
-Kuhn, M., Wickham, H., & Hvitfeldt, E. (2026). *recipes: Preprocessing and feature engineering steps for modeling* (Version 1.4.0) [Computer software]. Comprehensive R Archive Network. https://doi.org/10.32614/CRAN.package.recipes
+Australian Children&#39;s Education & Care Quality Authority. (n.d.-a). *Assessment and rating process*. <https://www.acecqa.gov.au/assessment/assessment-and-rating-process>
 
-Schliep, K., & Hechenbichler, K. (2025). *kknn: Weighted k-nearest neighbors* (Version 1.4.1) [Computer software]. Comprehensive R Archive Network. https://doi.org/10.32614/CRAN.package.kknn
+Australian Children&#39;s Education & Care Quality Authority. (n.d.-b). *National registers*. <https://www.acecqa.gov.au/resources/national-registers>
 
-Wright, M. N., & Ziegler, A. (2017). ranger: A fast implementation of random forests for high dimensional data in C++ and R. *Journal of Statistical Software, 77*(1), 1-17. https://doi.org/10.18637/jss.v077.i01
+Friedman, J. H., Hastie, T., & Tibshirani, R. (2010). Regularization paths for generalized linear models via coordinate descent. *Journal of Statistical Software, 33*(1), 1&#8211;22. <https://doi.org/10.18637/jss.v033.i01>
+
+Karatzoglou, A., Smola, A., Hornik, K., & Zeileis, A. (2004). kernlab: An S4 package for kernel methods in R. *Journal of Statistical Software, 11*(9), 1&#8211;20. <https://doi.org/10.18637/jss.v011.i09>
+
+Kuhn, M., Wickham, H., & Hvitfeldt, E. (2026). *recipes: Preprocessing and feature engineering steps for modeling* (Version 1.4.0) [Computer software]. <https://doi.org/10.32614/CRAN.package.recipes>
+
+Schliep, K., & Hechenbichler, K. (2025). *kknn: Weighted k-nearest neighbors* (Version 1.4.1) [Computer software]. <https://doi.org/10.32614/CRAN.package.kknn>
 
 # AI Use Statment
 I, Zixuan Zhao (SID: 550497901), acknowledge the use of OpenAI Codex as a supporting tool during the preparation of the KNN section of the final report, including checking text grammar and improving clarity, integrating R Markdown code, and checking reported results against existing model outputs. I carefully reviewed the related content for accuracy and take responsibility for the submitted work.
 
 I, Khoa Tran (SID: 550339069), acknowledge the use of Claude's Sonnet as a supporting tool during the validation of LDA model and cross-validation sections of the final report, including checking grammar, improving readability and formatting. I carefully reviewed the related content for accuracy and take responsibility for the submitted work.
+
+I, Yuzhi Shao (SID: 550139687), acknowledge the use of OpenAI Codex as a supporting tool during the preparation of the SVM section of the final report, including checking text grammar and shortening text, integrating R Markdown code, and checking reported results against existing model outputs. I carefully reviewed the related content for accuracy and take responsibility for the submitted work.
 
 # Appendix
 
