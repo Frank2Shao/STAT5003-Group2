@@ -1,0 +1,36 @@
+<!-- Draft sections for integration after EDA / shared preprocessing and evaluation design. -->
+<!-- Confirm group-wide headings, code chunk names, and final test results before submission. -->
+
+## Multinomial Logistic Regression (MLR)
+
+### Model rationale and implementation
+
+Multinomial logistic regression (MLR) was developed as an interpretable linear benchmark for classifying services into Below NQS, Meeting NQS and Above NQS. Unlike binary logistic regression, MLR estimates class probabilities for all three categories. We fitted a ridge-regularised multinomial model using `glmnet` in R (`alpha = 0`) to moderate coefficient instability arising from correlated and dummy-encoded predictors. The model used administrative service and provider characteristics rather than current or previous rating variables, which were excluded to prevent target leakage.
+
+The MLR-specific preprocessing pipeline included median imputation for numerical predictors, explicit handling of missing and previously unseen factor levels, dummy encoding for categorical predictors, removal of zero-variance predictors and normalisation of numerical predictors after encoding. These preprocessing operations were estimated separately within the training portion of each cross-validation fold and subsequently applied to that fold's validation data. Identifiers were excluded from the predictors. The wider project used an 80/20 split grouped by provider and five-fold provider-grouped cross-validation within the training partition, limiting the risk that services from the same provider appear on both sides of a validation split. The held-out test partition was not used for MLR tuning or the coefficient analysis reported here.
+
+### Hyperparameter refinement and model selection
+
+The strongly imbalanced outcome motivated tuning class weights as well as regularisation strength. A grid search assessed six penalty values (`lambda = 0.001, 0.003, 0.01, 0.03, 0.1, 0.3`) crossed with three weighting schemes (unweighted, square-root inverse-frequency and capped inverse-frequency), giving 18 configurations. The same five provider-grouped folds were used throughout. Each candidate was ranked by mean macro-averaged F1, which assigns equal importance to the three rating tiers and is more informative than accuracy alone for this imbalanced outcome. All three classes were included when computing macro-F1; a class receiving no predicted observations was assigned F1 = 0 rather than omitted.
+
+The selected MLR configuration used ridge penalty `lambda = 0.003` and square-root inverse-frequency class weighting. Across the five folds, it achieved a mean macro-F1 of **0.4859** (SD **0.0151**) and mean accuracy of **72.92%**. Compared with the corrected unweighted baseline macro-F1 of **0.4003**, tuning increased macro-F1 by **0.0856** (approximately **21.4%** relative), although accuracy decreased from **75.47%**. This is a trade-off: stronger attention to less frequent outcomes improved the balance of classification performance but did not maximise overall correct classifications.
+
+### Cross-validation results and remaining errors
+
+For the tuned model, mean fold-level recall was approximately **10.2%** for Below NQS, **84.9%** for Meeting NQS and **49.3%** for Above NQS. The corresponding mean class-specific F1 scores were approximately **0.144**, **0.827** and **0.487**, respectively. These results show that the model remained substantially more effective at identifying Meeting NQS than Below NQS. The lower recall for Below NQS is particularly important because failing to flag a service in this tier could undermine any proposed risk-screening application. Consequently, the CV results do not justify using MLR as a stand-alone tool to identify potentially underperforming services.
+
+The selected model was chosen using training-set cross-validation. **Independent test-set results must be inserted by the teammate responsible for the final evaluation**, using the previously held-out provider-grouped test partition. Test data should not be used for further hyperparameter selection.
+
+## Interpretation and Stakeholder Insights
+
+### Interpreting fitted MLR coefficients
+
+After tuning, the selected ridge-regularised MLR was refitted on the full training partition for coefficient inspection. Because `glmnet` uses a multinomial parameterisation with class-specific coefficients, interpretation is based on **differences between two classes' coefficients for the same feature**, rather than treating an individual exponentiated coefficient as an odds ratio against Meeting NQS. Coefficient signs describe conditional associations with the model's relative class scores, not causal effects. They also depend on the encoding and scaling used in preprocessing: the numerical effects are on a standardised scale, and dummy-variable coefficients should not be interpreted as raw 0-to-1 contrasts without accounting for their scaling.
+
+For **Above NQS relative to Meeting NQS**, the coefficient difference was positive for service approval age (**+0.363**), provider approval age (**+0.325**) and standalone preschool status (**+0.298**). The difference for after-school-care status was negative (**−0.499**). For **Below NQS relative to Meeting NQS**, having recorded service approval conditions showed a positive coefficient difference (**+0.202**), whereas provider service count showed a negative difference (**−0.352**). These are exploratory, model-conditional patterns; the coefficients do not rank causal drivers of quality, and correlated service characteristics may affect their stability. In addition, approval age is not necessarily the same as time in operation, as discussed in the EDA.
+
+### Implications for stakeholders
+
+For **regulatory authorities**, these relationships may help identify service profiles that warrant further examination and inform exploratory risk-monitoring research. However, the very low cross-validation recall for Below NQS means this fitted MLR is not sufficiently reliable to replace inspections or to serve as an automatic compliance-screening decision rule. For **service providers**, the observed associations may support comparative discussions and suggest questions for further investigation, but they should not be presented as prescriptions that will directly raise ratings. For **policy researchers**, the model offers a reproducible baseline for studying how administrative factors relate to recorded rating tiers and for evaluating whether additional variables or more flexible models improve minority-tier detection.
+
+These uses require careful safeguards: outputs should be reviewed by domain experts, interpreted alongside the formal NQS assessment process and checked for geographic or service-type differences before any operational use. The dataset is observational and represents a particular register snapshot; associations may reflect unmeasured factors, administrative recording conventions and differences in service composition rather than causal quality mechanisms. The final interpretation should be revisited after the held-out test results are available.

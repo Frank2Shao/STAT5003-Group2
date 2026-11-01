@@ -1,0 +1,41 @@
+```{r rf-report-load, include=FALSE}
+report_root <- if (file.exists("outputs/random_forest/cv_summary.csv")) "." else ".."
+report_csv <- function(path) read.csv(file.path(report_root, path), check.names = FALSE)
+rf_cv <- report_csv("outputs/random_forest/cv_summary.csv")
+rf_cv <- rf_cv[order(-rf_cv$mean_macro_f1, rf_cv$sd_macro_f1, rf_cv$candidate), ]
+rf_best <- rf_cv[1, ]
+rf_base <- report_csv("outputs/random_forest/baseline_cv.csv")
+rf_class <- report_csv("outputs/random_forest/per_class_metrics.csv")
+stopifnot(nrow(rf_cv) == 8, rf_best$candidate == 7)
+```
+
+Random Forest combines decision trees to capture nonlinear relationships and interactions among service characteristics. We used `ranger` (Wright & Ziegler, 2017) with 500 trees and Gini splitting. The shared provider-grouped split contained 13,497 training services and 3,663 test services. Tuning used the same five provider-grouped training folds as the group, keeping services from each provider together. Identifiers and rating-derived predictors were excluded.
+
+Within each training fold, the shared tree recipe handled unknown, novel and rare categorical levels, median-imputed numerical missing values, log-transformed provider service count, dummy-encoded categories and removed near-zero-variance predictors. Numerical scaling was not applied. Preprocessing and class weights were estimated from the training portion of each fold, then applied to its validation portion.
+
+We compared eight combinations of two values each for features per split, minimum node size and class weighting. Balanced weights were inverse to training class frequency, giving smaller classes greater weight. The selected configuration maximised mean validation Macro-F1, which equally weights the F1 scores of the three rating tiers.
+
+```{r rf-report-grid, echo=TRUE}
+rf_grid_table <- data.frame(
+  Setting = c("Features per split", "Minimum node size", "Class weights", "Trees"),
+  Tested = c("5, 12", "5, 20", "Uniform, balanced", "500 (fixed)"),
+  Selected = c(rf_best$mtry, rf_best$min_node_size, rf_best$weighting, rf_best$num_trees)
+)
+knitr::kable(rf_grid_table, caption = "Random Forest tuning settings.")
+```
+
+The selected model achieved mean Macro-F1 **`r sprintf('%.3f', rf_best$mean_macro_f1)`** (fold SD `r sprintf('%.3f', rf_best$sd_macro_f1)`) and mean accuracy **`r sprintf('%.2f%%', 100 * rf_best$mean_accuracy)`**. The majority-class baseline, which always predicted Meeting NQS, achieved Macro-F1 `r sprintf('%.3f', mean(rf_base$Macro_F1))` and accuracy `r sprintf('%.2f%%', 100 * mean(rf_base$Accuracy))`. Thus, RF improved equal-weighted performance across tiers, at the cost of lower overall accuracy.
+
+```{r rf-report-class-results, echo=TRUE}
+rf_class_table <- rf_class[c("class", "support", "precision", "recall", "f1")]
+knitr::kable(rf_class_table, digits = 3,
+  col.names = c("Actual tier", "Services", "Precision", "Recall", "F1"),
+  caption = "Random Forest: pooled out-of-fold class performance.")
+```
+
+Only 295 of 1,016 Below NQS services were correctly identified (29.0%), so most below-standard services were missed. Class results pool out-of-fold predictions; the overall scores above average fold metrics. These are cross-validation results, not held-out test results. Using the same folds for tuning and reporting can yield optimistic estimates. The eight-setting grid is also limited, and improvement cannot be attributed to weighting alone because other settings varied. RF was refitted on the training set but was not evaluated on the test set.
+
+The folded code below is the actual RF fitting and tuning script. It is displayed rather than rerun during rendering; the tables read its saved outputs.
+
+```{r rf-report-training-code, code=readLines(file.path(report_root, 'R/07_random_forest.R')), eval=FALSE, echo=TRUE}
+```
