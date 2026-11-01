@@ -1,6 +1,9 @@
 ---
 title: "STAT5003 Assignment Title"
 author: "Your group number"
+format:
+  html:
+    code-fold: true
 output:
   html_document:
     code_folding: hide 
@@ -117,7 +120,10 @@ Logical variables were converted to No/Yes categories, categorical variables wer
 
 kNN and SVM used the shared scaled recipe, which applied a $\log(x+1)$ transformation to provider_service_count and normalised numerical predictors. LDA used the same recipe and additionally removed linear combinations and numerical predictors with correlations above 0.9. Random Forest used the tree recipe, which also applied the log transformation but did not normalise numerical predictors.
 
-MLR used a separate recipe with 19 selected predictors, normalisation and zero-variance removal. It did not apply the $\log(x+1)$ transformation to provider_service_count.
+MLR used a separate recipe with 19 selected predictors, normalisation and zero-variance removal. It did not apply the $\log(x+1)$ transformation to provider_service_count. Detailed code as follows.
+
+```{r preprocessing-source, code=readLines('../R/06_model_setup.R', warn=FALSE, encoding='UTF-8'), eval=FALSE, echo=TRUE}
+```
 
 # Model Fitting & Improvement
 
@@ -138,6 +144,11 @@ The unweighted and weighted Linear SVMs were tested using the same $C$ grid: {0.
 
 Square-root inverse-frequency class weights were then added to give more importance to errors in the two smaller classes. This prevented the Linear SVM from predicting only the majority class and increased its mean cross-validation Macro-F1 from 0.2829 to 0.4398. Within the same planned grid, the weighted Linear SVM achieved its highest mean cross-validation Macro-F1 at $C=8$. This candidate was used as the starting point for RBF refinement.
 
+Detailed code as follows.
+
+```{r svm-linear-source, code=readLines('../R/10_model_svm.R', warn=FALSE, encoding='UTF-8')[1:1407], eval=FALSE, echo=TRUE}
+```
+
 ### RBF SVM Fitting, Tuning and Improvement
 
 RBF SVM was considered because it can represent nonlinear relationships between the predictors and rating tiers. The selected weighted Linear SVM value, $C=8$, was first used as the anchor for sigma tuning.
@@ -146,9 +157,16 @@ Three sigma values were compared: {0.015625, 0.03125, 0.0625}. Sigma was selecte
 
 With sigma fixed, the targeted $C$ grid {0.03125, 0.125, 0.5, 2, 4, 8, 16, 32} was tested. The highest mean cross-validation Macro-F1 was achieved at $C=16$, and performance decreased at $C=32$.
 
+Detailed code as follows.
+
+```{r svm-rbf-source, code=readLines('../R/10_model_svm.R', warn=FALSE, encoding='UTF-8')[1408:1980], eval=FALSE, echo=TRUE}
+```
+
 ### SVM Results
 
-```{r svm-results}
+The comparison table and RBF tuning figure below support the SVM conclusions. Detailed tuning, timing and out-of-fold diagnostics are provided in [Appendix B](#appendix-svm).
+
+```{r svm-results, echo=FALSE}
 svm_results <- read.csv('../outputs/models/svm/svm_kernel_model_comparison.csv')
 svm_results <- svm_results[match(c('Unweighted Linear SVM', 'Weighted Linear SVM',
                                   'Weighted RBF SVM (targeted)'), svm_results$specification), ]
@@ -167,11 +185,14 @@ svm_table <- data.frame(Specification = c('Unweighted Linear', 'Weighted Linear'
 knitr::kable(svm_table, caption = 'Mean provider-grouped cross-validation results for SVM candidates.')
 ```
 
-```{r svm-tuning-figure, out.width='60%', fig.align='center', fig.cap='Weighted RBF SVM targeted tuning.'}
+```{r svm-tuning-figure, echo=FALSE, out.width='60%', fig.align='center', fig.cap='Weighted RBF SVM targeted tuning.'}
 knitr::include_graphics('../figures/models/svm_rbf_targeted_tuning.png')
 ```
 
 Compared with the weighted Linear SVM, the weighted RBF SVM increased mean cross-validation Macro-F1 from 0.4398 to 0.4754 and improved Below NQS recall from 0.0428 to 0.1369. Accuracy and Above NQS recall decreased slightly, while Below NQS remained the most difficult class to identify. All SVM results were based on provider-grouped cross-validation, and the held-out test set was not used during tuning.
+
+```{r svm-diagnostics-source, code=readLines('../R/10_model_svm.R', warn=FALSE, encoding='UTF-8')[-(1:1980)], eval=FALSE, echo=TRUE}
+```
 
 # Model Evaluation & Selection
 
@@ -188,4 +209,94 @@ If applicable,
 I acknowledge the use of [AI tool + version, publisher and URL] to generate [summary of what was generated].
 
 # Appendix
+
+## Appendix A: Preprocessing Checks {#appendix-preprocessing}
+
+These checks execute the shared setup without fitting SVM candidates. Only training-fold data are used to estimate the recipe parameters. The held-out test data are used here only to check split membership and dimensions.
+
+```{r preprocessing-checks, message=FALSE, warning=FALSE, results='hide'}
+report_root <- normalizePath('..', winslash='/')
+preprocessing_env <- new.env()
+local({
+  previous_directory <- getwd()
+  on.exit(setwd(previous_directory))
+  setwd(report_root)
+  sys.source('R/06_model_setup.R', envir=preprocessing_env)
+})
+preprocessing_checks <- with(preprocessing_env, data.frame(
+  Check = c('Training services', 'Test services', 'Training providers',
+            'Test providers', 'Predictors', 'CV folds',
+            'Train-test provider overlap', 'Maximum within-fold provider overlap'),
+  Value = c(nrow(training_data), nrow(test_data),
+            length(unique(training_data$provider_id)),
+            length(unique(test_data$provider_id)), length(predictor_names),
+            length(cv_index),
+            length(intersect(training_data$provider_id, test_data$provider_id)),
+            max(vapply(names(cv_index), function(fold) {
+              length(intersect(training_data$provider_id[cv_index[[fold]]],
+                               training_data$provider_id[cv_index_out[[fold]]]))
+            }, integer(1))))
+))
+```
+
+```{r preprocessing-check-table}
+knitr::kable(preprocessing_checks, caption='Shared preprocessing and split checks.')
+```
+
+<details>
+<summary>Fold distributions and preprocessing validation</summary>
+
+```{r preprocessing-fold-results}
+knitr::kable(preprocessing_env$cv_fold_summary,
+             caption='Fixed validation-fold class distributions.')
+knitr::kable(data.frame(
+  Recipe = c('Scaled', 'Tree'),
+  Validation_rows = c(nrow(preprocessing_env$scaled_validation_check),
+                      nrow(preprocessing_env$tree_validation_check)),
+  Output_columns = c(ncol(preprocessing_env$scaled_validation_check),
+                     ncol(preprocessing_env$tree_validation_check)),
+  Missing_values = c(sum(is.na(preprocessing_env$scaled_validation_check)),
+                     sum(is.na(preprocessing_env$tree_validation_check)))
+), caption='Fold 1 recipe validation; output columns include the outcome.')
+```
+
+</details>
+
+## Appendix B: SVM Run Results {#appendix-svm}
+
+The following supplementary results are read from the saved CV outputs, with no held-out test evaluation. Macro-F1 and recall in the main-text comparison table are fold means; class metrics and confusion matrices below pool the OOF predictions.
+
+<details>
+<summary>Complete saved SVM tuning, timing and diagnostic tables</summary>
+
+```{r svm-detailed-results, results='asis'}
+svm_output_files <- c(
+  'svm_linear_tuning_results.csv', 'svm_rbf_targeted_tuning_results.csv',
+  'svm_linear_best_parameters.csv', 'svm_rbf_best_parameters.csv',
+  'svm_linear_resample_results.csv', 'svm_rbf_selected_resample_results.csv',
+  'svm_linear_class_metrics.csv', 'svm_rbf_class_metrics.csv',
+  'svm_linear_confusion_matrix.csv', 'svm_rbf_confusion_matrix.csv',
+  'svm_linear_overall_metrics.csv', 'svm_rbf_overall_metrics.csv',
+  'svm_linear_timing.csv', 'svm_rbf_timing.csv',
+  'svm_linear_package_versions.csv'
+)
+for (output_file in svm_output_files) {
+  saved_results <- read.csv(file.path('../outputs/models/svm', output_file),
+                            check.names=FALSE)
+  cat('\n\n')
+  print(knitr::kable(saved_results, digits=4, caption=output_file, format='html'))
+  cat('\n\n')
+}
+```
+
+</details>
+
+<details>
+<summary>Linear SVM tuning figure</summary>
+
+```{r svm-linear-tuning-figure, out.width='65%', fig.align='center', fig.cap='Linear SVM tuning on the common C grid.'}
+knitr::include_graphics('../figures/models/svm_linear_tuning.png')
+```
+
+</details>
 
