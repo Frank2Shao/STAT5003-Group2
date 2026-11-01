@@ -1,5 +1,5 @@
 "metric","value"
-"Pooled_OOF_Macro_F1",0.445262410059476
-"Pooled_OOF_Accuracy",0.706675557531303
-"Mean_Fold_Macro_F1",0.435474389846355
-"Mean_Fold_Accuracy",0.706424658685312
+"Pooled_OOF_Macro_F1",0.448520701348979
+"Pooled_OOF_Accuracy",0.709490997999556
+"Mean_Fold_Macro_F1",0.439843449452121
+"Mean_Fold_Accuracy",0.709440880989058
