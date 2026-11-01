@@ -124,6 +124,68 @@ MLR used a separate recipe with 19 selected predictors, normalisation and zero-v
 ## LDA
 
 ## kNN
+```{r knn-report-setup, include=FALSE}
+# Works when knitting from reports/ or from the repository root.
+knn_candidates <- c(".", "..")
+knn_found <- knn_candidates[file.exists(file.path(knn_candidates, "outputs", "knn", "best_parameters.csv"))]
+if (!length(knn_found)) stop("Place this report in the supplied repository's reports/ directory or root.")
+knn_root <- normalizePath(knn_found[1], winslash = "/")
+knn_dir <- file.path(knn_root, "outputs", "knn")
+```
+
+### Model rationale and fitting
+
+K-nearest neighbours (KNN) was included to assess whether services with similar administrative and provider profiles tend to share an NQS rating tier. The overlap between individual numerical predictors observed in EDA motivates considering their combined local structure. KNN assigns a class using nearby training observations, allowing nonlinear decision boundaries without specifying a parametric form. Below NQS, Meeting NQS and Above NQS were treated as nominal classes; their ordering was not explicitly modelled.
+
+The common provider-grouped split contained **13,497 training services** and **3,663 held-out services**. KNN used the same five provider-grouped training folds as the other candidate models, keeping services from each provider together. This reduces leakage from shared provider characteristics and evaluates transfer to providers absent from the corresponding training partition. Identifiers and rating-derived fields were excluded.
+
+The shared `recipes` preprocessing pipeline (Kuhn et al., 2026) handled missing and novel categorical levels, pooled levels below 1%, median-imputed numerical predictors, and log(1+x)-transformed provider service count. Numerical predictors were standardised before categorical dummy encoding, followed by near-zero-variance filtering. Scaling prevents variables measured in larger units from dominating Euclidean distances. Dummy columns were not subsequently standardised. Crucially, preprocessing parameters were estimated separately within each fold's training partition and then applied to validation data. The `kknn` engine's additional scaling was disabled (Schliep & Hechenbichler, 2025).
+
+### Hyperparameter tuning and improvement
+
+We compared ten neighbour counts, **k = 3, 5, 9, 15, 25, 41, 61, 81, 121 and 161**, using rectangular (equal) and triangular (distance-weighted) voting: 20 configurations across five folds. Small k permits more local variation, whereas larger k smooths the decision boundary and can favour the dominant class. Triangular voting was tested to give closer neighbours greater influence; it is not class weighting. No class rebalancing was applied. The code expands the search if the overall optimum reaches the largest k; this was unnecessary for the observed optimum.
+
+Selection maximised the **unweighted mean fold Macro-F1**, the arithmetic mean of the three class F1 scores within each fold. This gives each tier equal evaluation weight despite Meeting NQS comprising 73.7% of training services. Exact ties were resolved by larger k, then alphabetical kernel order.
+
+```{r knn-kernel-table, echo=FALSE}
+knn_kernel <- read.csv(file.path(knn_dir, "kernel_comparison.csv"))
+knn_comparison <- knn_kernel[, c("kernel", "k", "Macro_F1", "Macro_F1SD", "Accuracy")]
+names(knn_comparison) <- c("Voting kernel", "Best k", "Mean Macro-F1", "Fold SD", "Mean accuracy")
+knitr::kable(knn_comparison, digits = 3,
+  caption = "KNN tuning: best configuration for each kernel on the five shared provider-grouped folds.")
+```
+
+The selected configuration was **k = 5, equal voting, Euclidean distance**. Its mean Macro-F1 was **0.425 (fold SD 0.025)**, compared with **0.417** for the best triangular configuration, also at k = 5. The difference of 0.008 is descriptive and does not establish statistical superiority. Triangular voting increased mean fold Below NQS recall from 0.044 to 0.067 but reduced Meeting NQS recall from 0.896 to 0.850; the pre-specified Macro-F1 rule therefore retained equal voting.
+
+```{r knn-tuning-plot, echo=FALSE, out.width='85%', fig.cap='KNN tuning on the shared training folds. Error bars represent one fold standard deviation, not confidence intervals.'}
+knitr::include_graphics(file.path(knn_root, "figures", "knn_tuning.png"))
+```
+
+### Validation results and interpretation
+
+The majority-class baseline achieved mean fold Macro-F1 **0.283** and accuracy **0.737**. KNN improved Macro-F1 by **0.142**, while accuracy fell to **0.722**. This trade-off occurs because Macro-F1 weights classes equally, whereas accuracy is dominated by the number of Meeting NQS observations.
+
+```{r knn-class-table, echo=FALSE}
+knn_classes <- read.csv(file.path(knn_dir, "class_metrics.csv"))
+names(knn_classes) <- c("Actual tier", "Support", "Precision", "Recall", "F1")
+knitr::kable(knn_classes, digits = 3,
+  caption = "Selected KNN: class metrics from pooled out-of-fold predictions, not held-out test predictions.")
+```
+
+Only **45 of 1,016 Below NQS services** were correctly identified (recall 0.044); **923** were classified as Meeting NQS. For Above NQS, **784 of 2,527** were identified (recall 0.310), while **1,725** were classified as Meeting NQS. Meeting NQS recall was 0.897. Thus, local profile similarity provides some classification signal but does not reliably distinguish the minority tiers. In particular, the very low Below NQS recall limits usefulness for identifying services that may require additional support or regulatory attention.
+
+The class table pools out-of-fold predictions, giving pooled Macro-F1 **0.424**; this differs slightly from mean fold Macro-F1 **0.425** because fold sizes and distributions differ. The same folds were used for tuning and performance reporting, so these are internal estimates subject to selection optimism. **KNN was not evaluated on the held-out test set.** In the repository's common comparison, MLR achieved mean CV Macro-F1 0.487 and was selected before test scoring; KNN was therefore not the final model.
+
+### Limitations and reproducibility
+
+Euclidean distances remain sensitive to redundant predictors and reference-level dummy coding. Median imputation may also obscure structural missingness, and this nominal classifier does not use the tiers' ordering. Future work could compare reduced feature groups or mixed-data distances within training resampling, with particular attention to Below NQS recall. The administrative snapshot supports association-based classification, not causal claims or validated forecasts of future ratings.
+
+All displayed results are loaded from the supplied repository outputs. To regenerate tuning results and figures, run the following from the repository root; the report itself reads saved results to avoid repeating the full search during knitting.
+
+```{r knn-reproduce, eval=FALSE}
+source("R/07_knn_install.R")
+source("R/07_knn.R")
+```
 
 ## MLR
 
@@ -237,12 +299,9 @@ Any practical use would require expert oversight, assessment of subgroup perform
 
 # References
 
-List all the references used throughout the report using APA7 Style.
+Kuhn, M., Wickham, H., & Hvitfeldt, E. (2026). *recipes: Preprocessing and feature engineering steps for modeling* (Version 1.4.0) [Computer software]. Comprehensive R Archive Network. https://doi.org/10.32614/CRAN.package.recipes
+
+Schliep, K., & Hechenbichler, K. (2025). *kknn: Weighted k-nearest neighbors* (Version 1.4.1) [Computer software]. Comprehensive R Archive Network. https://doi.org/10.32614/CRAN.package.kknn
 
 # AI Use Statment
-If applicable,
-
-I acknowledge the use of [AI tool + version, publisher and URL] to generate [summary of what was generated].
-
-# Appendix
-
+I, Zixuan Zhao (SID: 550497901), acknowledge the use of OpenAI Codex as a supporting tool during the preparation of the KNN section of the final report, including checking text grammar and improving clarity, integrating R Markdown code, and checking reported results against existing model outputs. I carefully reviewed the related content for accuracy and take responsibility for the submitted work.
