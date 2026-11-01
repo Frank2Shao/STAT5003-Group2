@@ -425,6 +425,8 @@ I, Khoa Tran (SID: 550339069), acknowledge the use of Claude's Sonnet as a suppo
 
 I, Yuzhi Shao (SID: 550139687), acknowledge the use of OpenAI Codex as a supporting tool during the preparation of the SVM section of the final report, including checking text grammar and shortening text, integrating R Markdown code, and checking reported results against existing model outputs. I carefully reviewed the related content for accuracy and take responsibility for the submitted work.
 
+I, Jian Zhang (SID: 541018333), acknowledge the use of OpenAI Codex as a supporting tool during the preparation of the MLR section of the final report, including checking the correctness of the report grammar and debugging. I carefully reviewed the related content for accuracy and take responsibility for the submitted work.
+
 # Appendix
 
 ## Appendix A: Preprocessing Checks {#appendix-preprocessing}
