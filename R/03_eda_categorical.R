@@ -187,7 +187,7 @@ categorical_outcome_plot <- ggplot(
   aes(x = count, y = level, fill = rating_tier)
 ) +
   geom_col(position = "fill", width = 0.6) +
-  facet_wrap(~facet_label, scales = "free_y", ncol = 4) +
+  facet_wrap(~facet_label, scales = "free_y", ncol = 6) +
   scale_fill_manual(
     values = c(
       "Below NQS" = "#C44E52",
@@ -299,7 +299,7 @@ write_csv(categorical_redundant_pairs, "outputs/categorical/redundant_pairs.csv"
 ggsave("figures/categorical_univariate.png", categorical_univariate_plot,
        width = 10, height = 9, dpi = 220)
 ggsave("figures/categorical_vs_rating_tier.png", categorical_outcome_plot,
-       width = 16, height = 12, dpi = 440)
+       width = 16, height = 8, dpi = 440)
 ggsave("figures/categorical_residuals.png", categorical_residual_plot,
        width = 16, height = 9, dpi = 220)
 ggsave("figures/categorical_pairwise_cramers_v.png", categorical_pairwise_plot,

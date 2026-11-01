@@ -32,6 +32,16 @@ output:
 }
 </style>
 
+```{r libraries, echo=FALSE, warning=FALSE, message=FALSE}
+library(readr)
+library(dplyr)
+library(caret)
+library(recipes)
+library(ggplot2)
+select <- dplyr::select
+```
+
+
 # Introduction
 
 Australian education and care services are assessed against the National Quality Standard (NQS) under the National Quality Framework. The assessment process supports service quality and continuous improvement (https://www.acecqa.gov.au/assessment/assessment-and-rating-process). The Australian Children’s Education & Care Quality Authority (ACECQA) also publishes national registers containing information about services and providers (https://www.acecqa.gov.au/resources/national-registers). Examining these records may provide useful information for regulatory planning, service improvement and policy research.
@@ -67,7 +77,7 @@ The rating tiers were imbalanced: 74.3% of services were Meeting NQS, while 7.4%
 
 Missingness was high for schedule-specific weekly hours and may be related to which schedules a service offered. Approved capacity was missing for all 307 Family Day Care services. Maximum weekly hours were missing for 142 services; all recorded values were within 168 hours per week.
 
-```{r eda-distribution, fig.show='hold', out.width='100%', fig.align='center'}
+```{r eda-distribution, fig.show='hold', out.width='49%'}
 #| layout-ncol: 2
 rating_distribution <- read.csv('../outputs/rating_distribution.csv')
 missingness <- read.csv('../outputs/missingness_selected.csv')
@@ -81,7 +91,7 @@ knitr::include_graphics(c('../figures/rating_tier_distribution.png',
 
 Centre-Based Care represented 98.2% of services. Standalone preschool, OSHC services, operating pattern and state showed the clearest relationships with rating tier. Standalone preschools and services without OSHC had a higher proportion of Above NQS ratings, although the groups still overlapped. The three OSHC variables were also strongly related to each other, and service state and provider state often contained similar information.
 
-```{r eda-categorical, out.width='60%', fig.align='center', fig.cap='Categorical predictors and rating tiers.'}
+```{r eda-categorical, out.height='50%', fig.align='center'}
 categorical_counts <- read.csv('../outputs/categorical/categorical_vs_rating_crosstab.csv')
 knitr::include_graphics('../figures/categorical_vs_rating_tier.png')
 ```
@@ -90,7 +100,7 @@ knitr::include_graphics('../figures/categorical_vs_rating_tier.png')
 
 Capacity and approval ages differed across rating tiers, but their distributions overlapped. Provider service count was strongly right-skewed: across service records, the median was 7 and the maximum was 611. Operating hours also differed by rating tier and service type. The Family Day Care group included only 18 Above NQS services, so comparisons within this group were less reliable. Most services (92.4%) recorded five open days per week.
 
-```{r eda-numerical, fig.show='hold', out.width='100%', fig.align='center'}
+```{r eda-numerical, fig.show='hold', out.width='49%'}
 #| layout-ncol: 2
 numerical_summary <- read.csv('../outputs/numerical/by_tier.csv')
 operating_summary <- read.csv('../outputs/operating/operating_by_tier.csv')
@@ -128,7 +138,7 @@ MLR used a separate recipe with 19 selected predictors, normalisation and zero-v
 
 In addition to the shared `scaled_recipe`, the recipe used for Linear Discriminant Analysis (LDA) also further remove linear dependencies among numeric predictors and dropped predictors correlated above a `0.9` threshold.
 
-```{r}
+```{r lda-recipe}
 lda_recipe <- scaled_recipe |> # Additional pre-processing
   step_lincomb(all_numeric_predictors()) |>
   step_corr(all_numeric_predictors(), threshold = 0.9)
@@ -141,7 +151,7 @@ Two models of LDA were trained, one using the unchanged training set's class pro
 
 For both models, we also performed parameter tuning on `dimen` --- the number of discriminant functions produced. This is limited by the number of classes, resulting in only 2 possible tuning values.
 
-```{r}
+```{r lda-model-training, message=FALSE}
 lda_fit_equal <- train(
   lda_recipe,
   data = training_model_data,
@@ -164,11 +174,11 @@ lda_fit_emp <- train(
 
 Only one LDA model is included in the final model selection. Due to similar Macro F1 score for both models, `lda_fit_equal` was chosen due to its better Recall score for `Below NQS`
 
-```{r}
+```{r lda-results}
 lda_prior_comparison <- bind_rows(
   lda_fit_emp$results   |> mutate(priors = "Empirical"),
   lda_fit_equal$results |> mutate(priors = "Equal")
-) %>%
+) |>
   select(priors, dimen, Macro_F1, Accuracy, starts_with("Recall_"))
 
 lda_prior_comparison |> 
