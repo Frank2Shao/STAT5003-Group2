@@ -187,6 +187,13 @@ source("R/07_knn_install.R")
 source("R/07_knn.R")
 ```
 
+### Full KNN implementation
+
+The complete KNN script is displayed below. It includes fold-wise preprocessing, hyperparameter tuning, out-of-fold evaluation, leakage checks and output generation. It depends on the shared workflow in `R/06_model_setup.R`. The code is displayed without rerunning the full search during report rendering. To regenerate the results, run `source("R/07_knn.R")` from the repository root.
+
+```{r knn-full-source, echo=TRUE, eval=FALSE, code=readLines(file.path(knn_root, "R", "07_knn.R"), warn=FALSE)}
+```
+
 ## MLR
 
 ### Model fitting and rationale
